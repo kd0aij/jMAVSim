@@ -23,7 +23,7 @@ public class Visualizer {
 	private Transform3D viewerTransform = new Transform3D();
 	private VisualObject viewerTarget;
 	private MechanicalObject viewerPosition;
-	private boolean autoRotate = true;
+	private boolean autoRotate = false;
 
 	public boolean isAutoRotate() {
 		return autoRotate;
@@ -42,7 +42,6 @@ public class Visualizer {
 				universe.addBranchGraph(((VisualObject) object)
 						.getBranchGroup());
 		}
-		canvas3D.setSize(800, 800);
 	}
 
 	public Canvas3D getCanvas3D() {

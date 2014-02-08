@@ -10,6 +10,7 @@ import javax.media.j3d.Canvas3D;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
+import javax.swing.JToggleButton;
 import javax.swing.UIManager;
 
 public class ControlFrame extends JFrame {
@@ -20,11 +21,10 @@ public class ControlFrame extends JFrame {
 	JPanel contentPane;
 	JPanel jPanel1 = new JPanel();
 	LayoutManager2 layout1 = new BorderLayout();
-	JButton autoRot_toggle = new JButton();
-	JButton button2 = new JButton();
+	JToggleButton autoRotateButton = new JToggleButton();
 
 	protected Simulator sim;
-	static boolean autoRotate = false;
+//	static boolean autoRotate = false;
 
 	private boolean isFullScreen = false;
 
@@ -45,10 +45,6 @@ public class ControlFrame extends JFrame {
 		// fullScreen(device);
 	}
 
-	public static void main(String[] args) {
-		new ControlFrame(null);
-	}
-
 	private void initFrame() throws Exception {
 		try {
 			UIManager.setLookAndFeel(UIManager
@@ -62,21 +58,18 @@ public class ControlFrame extends JFrame {
 
 		contentPane = (JPanel) this.getContentPane();
 		contentPane.setLayout(layout1);
-		autoRot_toggle.setText("autoRotate");
-		autoRot_toggle.addActionListener(new java.awt.event.ActionListener() {
+		autoRotateButton.setText("autoRotate");
+	    autoRotateButton.setSelected(sim.visualizer.isAutoRotate());
+		autoRotateButton.addActionListener(new java.awt.event.ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				jButton1_actionPerformed(e);
 			}
 		});
 		contentPane.add(jPanel1, BorderLayout.SOUTH);
 		jPanel1.setLayout(new FlowLayout());
-		jPanel1.add(autoRot_toggle);
-
-		button2.setText("button2");
-		jPanel1.add(button2);
+		jPanel1.add(autoRotateButton);
 
 		Canvas3D c3d = sim.visualizer.getCanvas3D();
-		System.out.println("c3d size: " + c3d.getSize().width + ", " + c3d.getSize().height);
 		contentPane.add(c3d, BorderLayout.NORTH);
 }
 
@@ -96,9 +89,7 @@ public class ControlFrame extends JFrame {
 	}
 
 	void jButton1_actionPerformed(ActionEvent e) {
-		System.out.println("button: " + e.getID());
-		autoRotate = !sim.visualizer.isAutoRotate();
-		sim.visualizer.setAutoRotate(autoRotate);
+		sim.visualizer.setAutoRotate(autoRotateButton.isSelected());
 	}
 
 }
