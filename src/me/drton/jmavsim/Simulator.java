@@ -38,7 +38,7 @@ public class Simulator extends Thread {
     private long msgLastGPS = 0;
     private long initTime = 0;
     private long initDelay = 1000;
-    private Target target;
+    protected Target target;
     private static String portName;
 
     public Simulator() throws IOException, InterruptedException {

@@ -21,7 +21,8 @@ public class ControlFrame extends JFrame {
 	JPanel contentPane;
 	JPanel jPanel1 = new JPanel();
 	LayoutManager2 layout1 = new BorderLayout();
-	JToggleButton autoRotateButton = new JToggleButton();
+    JToggleButton autoRotateButton = new JToggleButton();
+    JToggleButton moveTargetButton = new JToggleButton();
 
 	protected Simulator sim;
 //	static boolean autoRotate = false;
@@ -58,16 +59,24 @@ public class ControlFrame extends JFrame {
 
 		contentPane = (JPanel) this.getContentPane();
 		contentPane.setLayout(layout1);
-		autoRotateButton.setText("autoRotate");
-	    autoRotateButton.setSelected(sim.visualizer.isAutoRotate());
-		autoRotateButton.addActionListener(new java.awt.event.ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				jButton1_actionPerformed(e);
-			}
-		});
+        autoRotateButton.setText("autoRotate");
+        autoRotateButton.setSelected(sim.visualizer.isAutoRotate());
+        autoRotateButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                autoRotateButton_actionPerformed(e);
+            }
+        });
+        moveTargetButton.setText("moveTarget");
+        moveTargetButton.setSelected(sim.target.isMove());
+        moveTargetButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                moveTargetButton_actionPerformed(e);
+            }
+        });
 		contentPane.add(jPanel1, BorderLayout.SOUTH);
 		jPanel1.setLayout(new FlowLayout());
-		jPanel1.add(autoRotateButton);
+        jPanel1.add(autoRotateButton);
+        jPanel1.add(moveTargetButton);
 
 		Canvas3D c3d = sim.visualizer.getCanvas3D();
 		contentPane.add(c3d, BorderLayout.NORTH);
@@ -88,8 +97,12 @@ public class ControlFrame extends JFrame {
 		}
 	}
 
-	void jButton1_actionPerformed(ActionEvent e) {
-		sim.visualizer.setAutoRotate(autoRotateButton.isSelected());
-	}
+    void autoRotateButton_actionPerformed(ActionEvent e) {
+        sim.visualizer.setAutoRotate(autoRotateButton.isSelected());
+    }
+
+    void moveTargetButton_actionPerformed(ActionEvent e) {
+        sim.target.setMove(moveTargetButton.isSelected());
+    }
 
 }
