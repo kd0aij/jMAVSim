@@ -6,6 +6,9 @@ import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.LayoutManager2;
 import java.awt.event.ActionEvent;
+import java.awt.event.ComponentEvent;
+import java.awt.event.ComponentListener;
+
 import javax.media.j3d.Canvas3D;
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -79,7 +82,7 @@ public class ControlFrame extends JFrame {
         jPanel1.add(moveTargetButton);
 
 		Canvas3D c3d = sim.visualizer.getCanvas3D();
-		contentPane.add(c3d, BorderLayout.NORTH);
+		contentPane.add(c3d, BorderLayout.CENTER);
 }
 
 	public void fullScreen(GraphicsDevice device) {
@@ -104,5 +107,4 @@ public class ControlFrame extends JFrame {
     void moveTargetButton_actionPerformed(ActionEvent e) {
         sim.target.setMove(moveTargetButton.isSelected());
     }
-
 }

@@ -22,6 +22,7 @@ import static java.lang.System.*;
  */
 public class Simulator extends Thread {
     protected static ControlFrame cPanel = null;
+    private static String portName;
     private World world;
     private AbstractVehicle vehicle;
     Visualizer visualizer;
@@ -39,10 +40,8 @@ public class Simulator extends Thread {
     private long initTime = 0;
     private long initDelay = 1000;
     protected Target target;
-    private static String portName;
 
     public Simulator() throws IOException, InterruptedException {
-        Simulator.portName = portName;
         // Create world
         world = new World();
         // Create environment
@@ -207,35 +206,35 @@ public class Simulator extends Thread {
                 }
             }
         }).start();
-        // new Thread(new Runnable() {
-        // @Override
-        // public void run() {
-        // while (true) {
-        // MAVLinkMessage msg;
-        // try {
-        // msg = mavlinkPort.getNextMessage(true);
-        // if (msg != null) {
-        // handleMavLinkMessage(msg);
-        // mavlinkPort1.sendMessage(msg);
-        // }
-        // } catch (IOException e) {
-        // // TODO Auto-generated catch block
-        // e.printStackTrace();
-        // }
-        // }
-        // }
-        // }).start();
+         new Thread(new Runnable() {
+         @Override
+         public void run() {
+         while (true) {
+         MAVLinkMessage msg;
+         try {
+         msg = mavlinkPort.getNextMessage(true);
+         if (msg != null) {
+         handleMavLinkMessage(msg);
+         mavlinkPort1.sendMessage(msg);
+         }
+         } catch (IOException e) {
+         // TODO Auto-generated catch block
+         e.printStackTrace();
+         }
+         }
+         }
+         }).start();
         nextRun = System.currentTimeMillis() + sleepInterval;
         while (true) {
             try {
-                while (System.currentTimeMillis() < nextRun - sleepInterval * 3
-                        / 4) {
-                    MAVLinkMessage msg = mavlinkPort.getNextMessage(false);
-                    if (msg == null)
-                        break;
-                    handleMavLinkMessage(msg);
-                    mavlinkPort1.sendMessage(msg);
-                }
+//                while (System.currentTimeMillis() < nextRun - sleepInterval * 3
+//                        / 4) {
+//                    MAVLinkMessage msg = mavlinkPort.getNextMessage(false);
+//                    if (msg == null)
+//                        break;
+//                    handleMavLinkMessage(msg);
+//                    mavlinkPort1.sendMessage(msg);
+//                }
                 while (System.currentTimeMillis() < nextRun - sleepInterval * 3
                         / 4) {
                     MAVLinkMessage msg = mavlinkPort1.getNextMessage(false);
