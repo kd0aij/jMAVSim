@@ -26,6 +26,7 @@ public class ControlFrame extends JFrame {
 	LayoutManager2 layout1 = new BorderLayout();
     JToggleButton autoRotateButton = new JToggleButton();
     JToggleButton moveTargetButton = new JToggleButton();
+    JButton resetPosButton = new JButton();
 
 	protected Simulator sim;
 //	static boolean autoRotate = false;
@@ -69,17 +70,27 @@ public class ControlFrame extends JFrame {
                 autoRotateButton_actionPerformed(e);
             }
         });
+        
         moveTargetButton.setText("moveTarget");
-        moveTargetButton.setSelected(sim.target.isMove());
+        moveTargetButton.setSelected(sim.target.isApplyAccel());
         moveTargetButton.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 moveTargetButton_actionPerformed(e);
             }
         });
-		contentPane.add(jPanel1, BorderLayout.SOUTH);
+        
+        resetPosButton.setText("reset Position");
+        resetPosButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                resetPosButton_actionPerformed(e);
+            }
+        });
+
+        contentPane.add(jPanel1, BorderLayout.SOUTH);
 		jPanel1.setLayout(new FlowLayout());
         jPanel1.add(autoRotateButton);
         jPanel1.add(moveTargetButton);
+        jPanel1.add(resetPosButton);
 
 		Canvas3D c3d = sim.visualizer.getCanvas3D();
 		contentPane.add(c3d, BorderLayout.CENTER);
@@ -105,6 +116,13 @@ public class ControlFrame extends JFrame {
     }
 
     void moveTargetButton_actionPerformed(ActionEvent e) {
-        sim.target.setMove(moveTargetButton.isSelected());
+        sim.target.setApplyAccel(moveTargetButton.isSelected());
+    }
+
+    void resetPosButton_actionPerformed(ActionEvent e) {
+        // NED frame
+        sim.vehicle.getPosition().set(0,0,-5);
+        sim.vehicle.getVelocity().set(0,0,0);
+        sim.vehicle.getAcceleration().set(0,0,0);
     }
 }

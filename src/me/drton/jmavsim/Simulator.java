@@ -24,7 +24,7 @@ public class Simulator extends Thread {
     protected static ControlFrame cPanel = null;
     private static String portName;
     private World world;
-    private AbstractVehicle vehicle;
+    protected AbstractVehicle vehicle;
     Visualizer visualizer;
     private MAVLinkPort mavlinkPort;
     private MAVLinkPort mavlinkPort1;
@@ -192,6 +192,8 @@ public class Simulator extends Thread {
         }
     }
 
+    static long lastReport = 0;
+
     public void run() {
         new Thread(new Runnable() {
             @Override
@@ -250,6 +252,12 @@ public class Simulator extends Thread {
                         nextRun - System.currentTimeMillis());
                 nextRun = Math.max(t + sleepInterval / 4, nextRun
                         + sleepInterval);
+                
+                if ((t - lastReport) > 1000) {
+                    lastReport = t;
+                    out.println("vehicle position: " + vehicle.getPosition());
+                }
+              
                 Thread.sleep(timeLeft);
             } catch (Exception e) {
                 e.printStackTrace();
