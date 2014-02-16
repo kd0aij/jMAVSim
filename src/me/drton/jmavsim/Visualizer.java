@@ -19,14 +19,20 @@ public class Visualizer {
 	private World world;
 	private BoundingSphere sceneBounds = new BoundingSphere(
 			new Point3d(0, 0, 0), 100000.0);
-	private Vector3d viewerPos = new Vector3d(-7.0, 0.0, -1.7);
+	private Vector3d fixedPos = new Vector3d(-7.0, 0.0, -1.7);
+	private Vector3d viewerPos = new Vector3d(fixedPos);
 	private Transform3D viewerTransform = new Transform3D();
 	private VisualObject viewerTarget;
 	private MechanicalObject viewerPosition;
-	private boolean autoRotate = false;
+
+    private boolean autoRotate = true;
 
 	public boolean isAutoRotate() {
 		return autoRotate;
+	}
+	public void initPos() {
+	    viewerPos.set(fixedPos);
+	    viewerPosition = null;
 	}
 
 	public Visualizer(World world) {
@@ -139,11 +145,15 @@ public class Visualizer {
 				mat.mul(m1);
 				m1.rotY(-Math.atan2(pos.y - viewerPos.y, pos.x - viewerPos.x));
 				mat.mul(m1);
-				m1.rotX(-Math.asin((pos.z - viewerPos.z) / dist.length()));
-				mat.mul(m1);
+				if (dist.length() > 1e-6) {
+        			m1.rotX(-Math.asin((pos.z - viewerPos.z) / dist.length()));
+        			mat.mul(m1);
+				}
 			}
 		} else {
-			mat.mul(viewerPosition.getRotation());
+	        if (viewerPosition != null) {
+	            mat.mul(viewerPosition.getRotation());
+	        }	                
 			m1.rotZ(Math.PI / 2);
 			mat.mul(m1);
 			m1.rotX(-Math.PI / 2);

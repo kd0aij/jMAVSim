@@ -26,10 +26,10 @@ public class ControlFrame extends JFrame {
 	LayoutManager2 layout1 = new BorderLayout();
     JToggleButton autoRotateButton = new JToggleButton();
     JToggleButton moveTargetButton = new JToggleButton();
+    JToggleButton fixedViewButton = new JToggleButton();
     JButton resetPosButton = new JButton();
 
 	protected Simulator sim;
-//	static boolean autoRotate = false;
 
 	private boolean isFullScreen = false;
 
@@ -45,6 +45,15 @@ public class ControlFrame extends JFrame {
 		}
 		this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		this.setTitle("jMAVSim");
+		// make sure we initialize to a consistent state
+		this.fixedViewButton.setSelected(sim.fixedPilot);
+		if (sim.fixedPilot) {
+		      this.autoRotateButton.setSelected(true);
+		      sim.visualizer.setAutoRotate(true);
+		} else {
+		      this.autoRotateButton.setSelected(false);
+              sim.visualizer.setAutoRotate(false);
+		}
 		this.pack();
 		this.setVisible(true);
 		// fullScreen(device);
@@ -79,6 +88,14 @@ public class ControlFrame extends JFrame {
             }
         });
         
+        fixedViewButton.setText("fixedView");
+        fixedViewButton.setSelected(sim.target.isApplyAccel());
+        fixedViewButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                fixedViewButton_actionPerformed(e);
+            }
+        });
+        
         resetPosButton.setText("reset Position");
         resetPosButton.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(ActionEvent e) {
@@ -90,6 +107,7 @@ public class ControlFrame extends JFrame {
 		jPanel1.setLayout(new FlowLayout());
         jPanel1.add(autoRotateButton);
         jPanel1.add(moveTargetButton);
+        jPanel1.add(fixedViewButton);
         jPanel1.add(resetPosButton);
 
 		Canvas3D c3d = sim.visualizer.getCanvas3D();
@@ -117,6 +135,19 @@ public class ControlFrame extends JFrame {
 
     void moveTargetButton_actionPerformed(ActionEvent e) {
         sim.target.setApplyAccel(moveTargetButton.isSelected());
+    }
+
+    void fixedViewButton_actionPerformed(ActionEvent e) {
+        if (fixedViewButton.isSelected()) {
+            sim.visualizer.setViewerTarget(sim.vehicle);
+            autoRotateButton.setSelected(true);
+            sim.visualizer.setAutoRotate(true);
+            sim.visualizer.initPos();
+            sim.visualizer.setViewerPosition(null);
+        } else {
+            sim.visualizer.setViewerTarget(sim.target);
+            sim.visualizer.setViewerPosition(sim.vehicle);
+        }
     }
 
     void resetPosButton_actionPerformed(ActionEvent e) {

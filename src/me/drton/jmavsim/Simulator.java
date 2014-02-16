@@ -40,6 +40,7 @@ public class Simulator extends Thread {
     private long initTime = 0;
     private long initDelay = 1000;
     protected Target target;
+    protected boolean fixedPilot = true;
 
     public Simulator() throws IOException, InterruptedException {
         // Create world
@@ -76,9 +77,20 @@ public class Simulator extends Thread {
         world.addObject(target);
         // Create visualizer
         visualizer = new Visualizer(world);
-        visualizer.setViewerTarget(target);
-        // visualizer.setViewerTarget(v);
-        visualizer.setViewerPosition(v);
+
+        // If ViewerPosition is not set to an object, it is fixed
+        // In that case, autorotate should default to on and the ViewerTarget
+        // should
+        // be the vehicle.
+        // Two options desired: fixed/autorotate to (target) vehicle
+        // and on vehicle, with or without autorotate to (target) target
+        if (fixedPilot) {
+            visualizer.setViewerTarget(vehicle);
+        } else {
+            visualizer.setViewerTarget(target);
+            visualizer.setViewerPosition(vehicle);
+        }
+
         // Create and open port
         gotHeartBeat = false;
         inited = false;
@@ -208,35 +220,36 @@ public class Simulator extends Thread {
                 }
             }
         }).start();
-         new Thread(new Runnable() {
-         @Override
-         public void run() {
-         while (true) {
-         MAVLinkMessage msg;
-         try {
-         msg = mavlinkPort.getNextMessage(true);
-         if (msg != null) {
-         handleMavLinkMessage(msg);
-         mavlinkPort1.sendMessage(msg);
-         }
-         } catch (IOException e) {
-         // TODO Auto-generated catch block
-         e.printStackTrace();
-         }
-         }
-         }
-         }).start();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while (true) {
+                    MAVLinkMessage msg;
+                    try {
+                        msg = mavlinkPort.getNextMessage(true);
+                        if (msg != null) {
+                            handleMavLinkMessage(msg);
+                            mavlinkPort1.sendMessage(msg);
+                        }
+                    } catch (IOException e) {
+                        // TODO Auto-generated catch block
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }).start();
         nextRun = System.currentTimeMillis() + sleepInterval;
         while (true) {
             try {
-//                while (System.currentTimeMillis() < nextRun - sleepInterval * 3
-//                        / 4) {
-//                    MAVLinkMessage msg = mavlinkPort.getNextMessage(false);
-//                    if (msg == null)
-//                        break;
-//                    handleMavLinkMessage(msg);
-//                    mavlinkPort1.sendMessage(msg);
-//                }
+                // while (System.currentTimeMillis() < nextRun - sleepInterval *
+                // 3
+                // / 4) {
+                // MAVLinkMessage msg = mavlinkPort.getNextMessage(false);
+                // if (msg == null)
+                // break;
+                // handleMavLinkMessage(msg);
+                // mavlinkPort1.sendMessage(msg);
+                // }
                 while (System.currentTimeMillis() < nextRun - sleepInterval * 3
                         / 4) {
                     MAVLinkMessage msg = mavlinkPort1.getNextMessage(false);
@@ -252,12 +265,12 @@ public class Simulator extends Thread {
                         nextRun - System.currentTimeMillis());
                 nextRun = Math.max(t + sleepInterval / 4, nextRun
                         + sleepInterval);
-                
+
                 if ((t - lastReport) > 1000) {
                     lastReport = t;
                     out.println("vehicle position: " + vehicle.getPosition());
                 }
-              
+
                 Thread.sleep(timeLeft);
             } catch (Exception e) {
                 e.printStackTrace();
