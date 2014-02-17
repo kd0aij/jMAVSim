@@ -155,5 +155,6 @@ public class ControlFrame extends JFrame {
         sim.vehicle.getPosition().set(0,0,-5);
         sim.vehicle.getVelocity().set(0,0,0);
         sim.vehicle.getAcceleration().set(0,0,0);
+        sim.target.getPosition().set(5, 0, -5);
     }
 }

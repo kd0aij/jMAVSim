@@ -19,7 +19,7 @@ public class Visualizer {
 	private World world;
 	private BoundingSphere sceneBounds = new BoundingSphere(
 			new Point3d(0, 0, 0), 100000.0);
-	private Vector3d fixedPos = new Vector3d(-7.0, 0.0, -1.7);
+	private Vector3d fixedPos = new Vector3d(-7.0, 0.0, -5);
 	private Vector3d viewerPos = new Vector3d(fixedPos);
 	private Transform3D viewerTransform = new Transform3D();
 	private VisualObject viewerTarget;

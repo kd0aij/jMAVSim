@@ -1,5 +1,6 @@
 package me.drton.jmavsim;
 
+import com.sun.j3d.utils.geometry.Cylinder;
 import com.sun.j3d.utils.geometry.Sphere;
 
 import javax.media.j3d.Appearance;
@@ -26,6 +27,8 @@ public class Target extends VisualObject {
     public double dragMove = 0.2;
     private GlobalPositionProjector gpsProjector = new GlobalPositionProjector();
     protected boolean applyAccel = false;
+    static Vector3d torque = new Vector3d(0.0, 0.0, 2 * Math.PI / 5.0);
+    private Vector3d c_M = new Vector3d();
 
     public boolean isApplyAccel() {
         return applyAccel;
@@ -37,9 +40,6 @@ public class Target extends VisualObject {
 
     private Matrix3d skewSymm(Vector3d b) {
         Matrix3d result = new Matrix3d();
-        result.setM00(0);
-        result.setM11(0);
-        result.setM22(0);
         result.setM01(-b.z);
         result.setM02(b.y);
         result.setM10(b.z);
@@ -50,7 +50,6 @@ public class Target extends VisualObject {
     }
 
     private Matrix3d calcI_c(List<Vector4d> masses) {
-        Vector3d c_M = new Vector3d();
         double M = 0;
         for (Vector4d e : masses) {
             M += e.w;
@@ -59,6 +58,7 @@ public class Target extends VisualObject {
             c_M.z += e.w * e.z;
         }
         c_M.scale(1.0 / M);
+        setMass(M);
         Matrix3d I_c = new Matrix3d();
         Vector3d r = new Vector3d();
         for (Vector4d e : masses) {
@@ -97,26 +97,47 @@ public class Target extends VisualObject {
         masses.add(new Vector4d(size, 0, 0, mass));
         masses.add(new Vector4d(0, -size, 0, mass));
         masses.add(new Vector4d(0, size, 0, mass));
-        masses.add(new Vector4d(0, 0, -size, mass));
-        masses.add(new Vector4d(0, 0, size, 2 * mass));
+        masses.add(new Vector4d(0, 0, -size, 2 * mass));
+        masses.add(new Vector4d(0, 0, size, mass));
         momentOfInertia.set(calcI_c(masses));
 
-        TransformGroup baseTG = new TransformGroup(new Transform3D());
-
-        Sphere sphere = new Sphere((float) size);
-        sphere.getAppearance().setMaterial(
-                new Material(red, black, dimred, red, 64.0f));
-
-        Transform3D head = new Transform3D();
-        head.setTranslation(new Vector3d(0, 0, size));
-        TransformGroup headTG = new TransformGroup(head);
-        Sphere headShape = new Sphere((float) size / 4);
-        headShape.getAppearance().setMaterial(
-                new Material(green, black, dimgreen, green, 64.0f));
-        headTG.addChild(headShape);
-
-        baseTG.addChild(sphere);
-        baseTG.addChild(headTG);
+        Transform3D baseT3D = new Transform3D();
+        baseT3D.rotX(-Math.PI/32);
+        baseT3D.transform(torque);
+        TransformGroup baseTG = new TransformGroup(baseT3D);
+        
+        // create a Sphere for each point mass
+        for (Vector4d e : masses) {
+            Transform3D pointMassT3D = new Transform3D();
+            pointMassT3D.setTranslation(new Vector3d(e.x, e.y, e.z));
+            TransformGroup pointMassTG = new TransformGroup(pointMassT3D);
+            Sphere massShape = new Sphere((float) (7 * e.w * size / 4));
+            massShape.getAppearance().setMaterial(
+                    new Material(red, black, dimred, red, 64.0f));
+            pointMassTG.addChild(massShape);
+            baseTG.addChild(pointMassTG);
+        }
+        
+        // connect center of mass to each sphere
+        for (Vector4d e : masses) {
+            Vector3d line = new Vector3d(e.x, e.y, e.z);
+            double height = line.length();
+            Transform3D cylT3D = new Transform3D();
+            if (e.x != 0) {
+                cylT3D.rotZ(Math.PI/2);
+            } else if (e.z != 0) {
+                cylT3D.rotX(Math.PI/2);
+            }
+            line.scale(0.5);
+            cylT3D.setTranslation(line);
+            TransformGroup pointMassTG = new TransformGroup(cylT3D);
+            Cylinder connector = new Cylinder((float) (size / 16), (float) height);
+            connector.getAppearance().setMaterial(
+                    new Material(black, black, black, black, 64.0f));
+            pointMassTG.addChild(connector);
+            baseTG.addChild(pointMassTG);
+        }
+        
         transformGroup.addChild(baseTG);
     }
 
@@ -144,20 +165,19 @@ public class Target extends VisualObject {
     }
 
     static int tState = 0;
-    static Vector3d torque = new Vector3d(0.0, 0.0, 2 * Math.PI / 5.0);
     static long lastReport = 0;
 
     @Override
     protected Vector3d getTorque() {
-        if ((lastTime - lastReport) > 1000) {
-            lastReport = lastTime;
-            out.println("target angular velocity: " + this.getRotationRate());
-        }
         switch (tState) {
         case 0:
+            if ((lastTime - lastReport) > 1000) {
+                lastReport = lastTime;
+                out.println("target angular velocity: " + this.getRotationRate());
+            }
             if (lastTime - startTime > 5000) {
-                tState = 1;
-                torque.set(1.0, 0.0, 0.0);
+                tState = 2;
+                torque.set(0.0, 0.0, 0.0);
                 System.out.println("Target torque: " + torque);
             }
             break;
