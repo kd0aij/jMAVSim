@@ -51,8 +51,8 @@ public class ControlFrame extends JFrame {
 		      this.autoRotateButton.setSelected(true);
 		      sim.visualizer.setAutoRotate(true);
 		} else {
-		      this.autoRotateButton.setSelected(false);
-              sim.visualizer.setAutoRotate(false);
+		      this.autoRotateButton.setSelected(true);
+              sim.visualizer.setAutoRotate(true);
 		}
 		this.pack();
 		this.setVisible(true);

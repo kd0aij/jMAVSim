@@ -33,14 +33,14 @@ public class Simulator extends Thread {
     private int sysId = -1;
     private int componentId = -1;
     private int sleepInterval = 10;
-    private int visualizerSleepInterval = 20;
+    private int visualizerSleepInterval = 1;
     private long nextRun = 0;
     private long msgIntervalGPS = 200;
     private long msgLastGPS = 0;
     private long initTime = 0;
     private long initDelay = 1000;
     protected Target target;
-    protected boolean fixedPilot = true;
+    protected boolean fixedPilot = false;
 
     public Simulator() throws IOException, InterruptedException {
         // Create world
@@ -67,11 +67,11 @@ public class Simulator extends Thread {
         sensors.initGPS(55.753395, 37.625427);
         v.setSensors(sensors);
         v.setDragMove(0.02);
+        v.getPosition().set(0, 0, 0);
         // v.setDragRotate(0.1);
         vehicle = v;
         world.addObject(v);
         target = new Target(world, 0.3);
-        target.setMass(90.0);
         target.initGPS(55.753395, 37.625427);
         target.getPosition().set(5, 0, -5);
         world.addObject(target);
@@ -80,8 +80,7 @@ public class Simulator extends Thread {
 
         // If ViewerPosition is not set to an object, it is fixed
         // In that case, autorotate should default to on and the ViewerTarget
-        // should
-        // be the vehicle.
+        // should be the vehicle.
         // Two options desired: fixed/autorotate to (target) vehicle
         // and on vehicle, with or without autorotate to (target) target
         if (fixedPilot) {
@@ -204,7 +203,7 @@ public class Simulator extends Thread {
         }
     }
 
-    static long lastReport = 0;
+    static long lastUpdate = 0;
 
     public void run() {
         new Thread(new Runnable() {
@@ -265,11 +264,6 @@ public class Simulator extends Thread {
                         nextRun - System.currentTimeMillis());
                 nextRun = Math.max(t + sleepInterval / 4, nextRun
                         + sleepInterval);
-
-                if ((t - lastReport) > 1000) {
-                    lastReport = t;
-                    out.println("vehicle position: " + vehicle.getPosition());
-                }
 
                 Thread.sleep(timeLeft);
             } catch (Exception e) {

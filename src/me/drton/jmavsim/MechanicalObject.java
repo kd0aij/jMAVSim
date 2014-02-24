@@ -12,8 +12,11 @@ public abstract class MechanicalObject extends WorldObject {
     protected Vector3d position = new Vector3d();
     protected Vector3d velocity = new Vector3d();
     protected Vector3d acceleration = new Vector3d();
+    // rotate from body frame to earth frame
     protected Matrix3d rotation = new Matrix3d();
     protected Vector3d rotationRate = new Vector3d();
+    protected Vector3d gyroAcc = new Vector3d();
+    protected Vector3d angularAcc = new Vector3d();
     protected double mass = 1.0;
     protected Matrix3d momentOfInertia = new Matrix3d();
     protected Matrix3d momentOfInertiaInv = new Matrix3d();
@@ -77,14 +80,16 @@ public abstract class MechanicalObject extends WorldObject {
             acceleration = getForce();
             acceleration.scale(1.0 / mass);
             acceleration.add(getWorld().getEnvironment().getG());
-            if (position.z >= getWorld().getEnvironment().getGroundLevel(position) &&
-                    velocity.z + acceleration.z * dt >= 0.0) {
+            if (position.z >= getWorld().getEnvironment().getGroundLevel(
+                    position)
+                    && velocity.z + acceleration.z * dt >= 0.0) {
                 // On ground
                 acceleration.x = -velocity.x / dt;
                 acceleration.y = -velocity.y / dt;
                 acceleration.z = -velocity.z / dt;
-                position.z = getWorld().getEnvironment().getGroundLevel(position);
-                //rotationRate.set(0.0, 0.0, 0.0);
+                position.z = getWorld().getEnvironment().getGroundLevel(
+                        position);
+                // rotationRate.set(0.0, 0.0, 0.0);
             }
             Vector3d dVel = new Vector3d(acceleration);
             dVel.scale(dt);
@@ -97,18 +102,29 @@ public abstract class MechanicalObject extends WorldObject {
                 r.set(new AxisAngle4d(rotationAxis, rotationRate.length() * dt));
                 rotation.mulNormalize(r);
             }
-            // Rotation rate
-            Vector3d Iw = new Vector3d(rotationRate);
-            momentOfInertia.transform(Iw);
-            Vector3d angularAcc = new Vector3d();
-            angularAcc.cross(rotationRate, Iw);
-            angularAcc.negate();
-            angularAcc.add(getTorque());
-            momentOfInertiaInv.transform(angularAcc);
-            angularAcc.scale(dt);
-            rotationRate.add(angularAcc);
+            // use an adaptive dt to integrate omega
+            Vector3d exTorque = getTorque();
+            int wInc = (int)(1 + 500 * rotationRate.length());
+//            System.out.print("wInc: " + wInc + ": ");
+            for (int i = 0; i < wInc; i++)
+                omegaUpdate(dt / wInc, exTorque);
         }
         lastTime = t;
+    }
+
+    private void omegaUpdate(double dt, Vector3d exTorque) {
+        // gyroscopic torque
+        Vector3d Iw = new Vector3d(rotationRate);
+        momentOfInertia.transform(Iw);
+        gyroAcc.cross(rotationRate, Iw);
+        gyroAcc.negate();
+        momentOfInertiaInv.transform(gyroAcc);
+        // external torque
+        angularAcc.set(exTorque);
+        momentOfInertiaInv.transform(angularAcc);
+        // integrate
+        rotationRate.scaleAdd(dt, gyroAcc, rotationRate);
+        rotationRate.scaleAdd(dt, angularAcc, rotationRate);
     }
 
     protected abstract Vector3d getForce();
