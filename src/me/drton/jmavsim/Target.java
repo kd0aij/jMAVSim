@@ -177,7 +177,7 @@ public class Target extends VisualObject {
     static long lastImpulse;
     Report gtReport = new Report(1000);
     double damping = 0.002, zdamping = 0;
-    Vector3d impT = new Vector3d(1, 0, 0);
+    Vector3d impT = new Vector3d(0, 1, 0);
 
     @Override
     protected Vector3d getTorque() {
@@ -213,7 +213,7 @@ public class Target extends VisualObject {
             }
             break;
         case 2:
-            // and apply an impulse
+            // apply an impulse
             Vector3d impulse = new Vector3d(impT);
             Matrix3d earth2body = new Matrix3d(rotation);
             earth2body.transpose();

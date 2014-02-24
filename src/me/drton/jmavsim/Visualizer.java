@@ -1,6 +1,7 @@
 package me.drton.jmavsim;
 
 import java.awt.GraphicsConfiguration;
+import java.util.Map;
 
 import com.sun.j3d.utils.geometry.Sphere;
 import com.sun.j3d.utils.image.TextureLoader;
@@ -48,6 +49,10 @@ public class Visualizer {
 				universe.addBranchGraph(((VisualObject) object)
 						.getBranchGroup());
 		}
+		Map vuMap = universe.getProperties();
+		System.out.println(" Java3D version : " + vuMap.get("j3d.version"));
+		System.out.println(" Java3D vendor : " + vuMap.get("j3d.vendor"));
+		System.out.println(" Java3D renderer: " + vuMap.get("j3d.renderer"));
 	}
 
 	public Canvas3D getCanvas3D() {
