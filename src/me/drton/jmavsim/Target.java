@@ -12,9 +12,18 @@ import javax.vecmath.Vector4d;
 
 import sun.reflect.generics.tree.BaseType;
 
+import java.io.File;
+import java.io.FileFilter;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.FileHandler;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.logging.StreamHandler;
 
 import static java.lang.System.*;
 
@@ -22,6 +31,26 @@ import static java.lang.System.*;
  * User: ton Date: 01.02.14 Time: 22:12
  */
 public class Target extends VisualObject {
+    static private Logger logger;
+    static {
+        logger = Logger.getLogger("Target");
+        Handler[] handler = logger.getParent().getHandlers();
+        handler[0].setFormatter(new BriefFormatter());
+        try {
+            String logFileName = FileUtils.getLogFileName("target");
+            StreamHandler logFileHandler = new StreamHandler(
+                    new FileOutputStream(logFileName), new BriefFormatter());
+            out.println("logfile: " + logFileName);
+            logFileHandler.setFormatter(new BriefFormatter());
+            logger.addHandler(logFileHandler);
+        } catch (SecurityException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
     protected long startTime = -1;
     public double dragMove = 0.2;
     private GlobalPositionProjector gpsProjector = new GlobalPositionProjector();
@@ -91,6 +120,9 @@ public class Target extends VisualObject {
 
     public Target(World world, double size) throws FileNotFoundException {
         super(world);
+        // this sets the top logging level (above the file and console handlers)
+        logger.setLevel(Level.ALL);
+        logger.info("set top logging level to ALL");
 
         ArrayList<Vector4d> masses = new ArrayList<Vector4d>();
         int N = 8;
@@ -218,9 +250,9 @@ public class Target extends VisualObject {
             Matrix3d earth2body = new Matrix3d(rotation);
             earth2body.transpose();
             earth2body.transform(impulse);
-//            impulse.scale(.2);
+            // impulse.scale(.2);
             torque.add(impulse);
-//             impT.scale(-1);
+            // impT.scale(-1);
             // damping = .002;
             out.println("Y torque impulse\n");
             tState = 3;
@@ -277,14 +309,21 @@ public class Target extends VisualObject {
         }
 
         protected void report_now(Vector3d v, String label) {
-            out.format("%f: wMag: %5.3f, omega: (%5.3f, %5.3f, %5.3f),  ",
-                    (lastTime - baseTime) / 1000.0, rotationRate.length(),
-                    rotationRate.x, rotationRate.y, rotationRate.z);
-            out.format(
-                    "torque: (%5.3f, %5.3f, %5.3f), %s: (%8.7f, %8.7f, %8.7f), "
-                            + "pos: (%5.3f, %5.3f, %5.3f)\n", torque.x,
-                    torque.y, torque.z, label, v.x, v.y, v.z, position.x,
-                    position.y, position.z);
+            logger.log(
+                    Level.INFO,
+                    "{0}{1}",
+                    new Object[] {
+                            String.format(
+                                    "%8.3f: wMag: %7.3f, omega: (%7.3f, %7.3f, %7.3f),  ",
+                                    (lastTime - baseTime) / 1000.0,
+                                    rotationRate.length(), rotationRate.x,
+                                    rotationRate.y, rotationRate.z),
+                            String.format(
+                                    "torque: (%7.3f, %7.3f, %7.3f), %s: (%7.3f, %7.3f, %7.3f), "
+                                            + "pos: (%7.3f, %7.3f, %7.3f)\n",
+                                    torque.x, torque.y, torque.z, label, v.x,
+                                    v.y, v.z, position.x, position.y,
+                                    position.z) });
         }
     }
 }
