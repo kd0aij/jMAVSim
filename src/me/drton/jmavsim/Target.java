@@ -35,7 +35,7 @@ public class Target extends VisualObject {
         Handler[] handler = logger.getParent().getHandlers();
         handler[0].setFormatter(new BriefFormatter());
         try {
-            String logFileName = FileUtils.getLogFileName("target");
+            String logFileName = FileUtils.getLogFileName("./log/target");
             StreamHandler logFileHandler = new StreamHandler(
                     new FileOutputStream(logFileName), new BriefFormatter());
             out.println("logfile: " + logFileName);
