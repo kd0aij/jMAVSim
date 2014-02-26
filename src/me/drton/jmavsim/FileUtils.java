@@ -5,9 +5,9 @@ import java.io.FileFilter;
 
 class FileUtils {
 
-    public static String getLogFileName(String prefix) {
+    public static String getLogFileName(String subdir, String prefix) {
         // autosequence logfile names: format target_nnnn.log
-        File dir = new File(".");
+        File dir = new File(subdir);
         FileFilter filter = new FileFilter() {
             public boolean accept(File file) {
                 boolean status = false;
@@ -31,6 +31,6 @@ class FileUtils {
                     logSeq = seq + 1;
             }
         }
-        return new String(prefix + "_" + logSeq + ".log");
+        return new String(subdir + File.separatorChar + prefix + "_" + logSeq + ".log");
     }
 }

@@ -35,7 +35,7 @@ public class Target extends VisualObject {
         Handler[] handler = logger.getParent().getHandlers();
         handler[0].setFormatter(new BriefFormatter());
         try {
-            String logFileName = FileUtils.getLogFileName("./log/target");
+            String logFileName = FileUtils.getLogFileName("log", "target");
             StreamHandler logFileHandler = new StreamHandler(
                     new FileOutputStream(logFileName), new BriefFormatter());
             out.println("logfile: " + logFileName);
@@ -253,7 +253,7 @@ public class Target extends VisualObject {
             zdamping = 0;
             Vector3d delT = new Vector3d(0.0, 0.0, 0.02);
             torque.add(delT);
-            if (rotationRate.length() >= 2) {
+            if (rotationRate.length() >= 8) {
                 gtReport.report_now(gyroAcc, "gyroAcc");
                 out.println("^^^ finished spin-up");
                 tState = 2;
