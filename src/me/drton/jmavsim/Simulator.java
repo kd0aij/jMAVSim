@@ -3,6 +3,8 @@ package me.drton.jmavsim;
 import static java.lang.System.out;
 
 import java.awt.HeadlessException;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
@@ -329,6 +331,12 @@ public class Simulator extends Thread {
         // construct Simulator dialog
         sim.visualizer.canvas3D.setSize(800, 600);
         cPanel = new ControlFrame(sim);
+        cPanel.addWindowListener(new WindowAdapter() {
+            public void windowClosing(WindowEvent e) {
+                System.exit(0);
+            }
+        });
+
         cPanel.setBounds(100, 100, cPanel.getWidth(), cPanel.getHeight());
         cPanel.setVisible(true);
     }

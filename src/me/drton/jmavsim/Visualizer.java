@@ -1,4 +1,5 @@
 package me.drton.jmavsim;
+
 /**
  * User: ton Date: 28.11.13 Time: 23:15
  */
@@ -97,12 +98,11 @@ class CameraView {
 
 }
 
-
 public class Visualizer {
     private static Color3f white = new Color3f(1.0f, 1.0f, 1.0f);
     private VirtualUniverse universe;
     private Locale locale;
-//    private SimpleUniverse universe;
+    // private SimpleUniverse universe;
     protected Canvas3D canvas3D;
     private World world;
     private BoundingSphere sceneBounds = new BoundingSphere(
@@ -136,11 +136,6 @@ public class Visualizer {
 //        universe = new SimpleUniverse(canvas3D);
 //        universe.getViewer().getView().setBackClipDistance(100000.0);
         createEnvironment();
-        for (WorldObject object : world.getObjects()) {
-            if (object instanceof VisualObject)
-                locale.addBranchGraph(((VisualObject) object)
-                        .getBranchGroup());
-        }
         Map vuMap = universe.getProperties();
         System.out.println(" Java3D version : " + vuMap.get("j3d.version"));
         System.out.println(" Java3D vendor : " + vuMap.get("j3d.vendor"));
@@ -158,8 +153,7 @@ public class Visualizer {
         xform.mul(xform2);
         vpTG.setTransform(xform);
         View view = dbgCamera.getView();
-        view.setProjectionPolicy(View.PARALLEL_PROJECTION);
-        locale.addBranchGraph(dbgCamera.getRootBG());        
+        view.setProjectionPolicy(View.PERSPECTIVE_PROJECTION);
 
         mainCamera = new CameraView();
         vpTG = mainCamera.getViewPlatformTransformGroup();
@@ -170,10 +164,19 @@ public class Visualizer {
         xform.mul(xform2);
         vpTG.setTransform(xform);
         view = mainCamera.getView();
-        view.setProjectionPolicy(View.PARALLEL_PROJECTION);
+        view.setProjectionPolicy(View.PERSPECTIVE_PROJECTION);
+        mainCamera.getView().setBackClipDistance(100000.0);
+
+        locale.addBranchGraph(dbgCamera.getRootBG());        
         locale.addBranchGraph(mainCamera.getRootBG());        
 
-    }
+        for (WorldObject object : world.getObjects()) {
+            if (object instanceof VisualObject) {
+                locale.addBranchGraph(((VisualObject) object)
+                        .getBranchGroup());
+            }
+        }
+}
 
     public Canvas3D getCanvas3D() {
         return canvas3D;
@@ -244,8 +247,8 @@ public class Visualizer {
         // coordinate frame reference object
         Transform3D wFrameT3D = new Transform3D();
         wFrameT3D.setTranslation(new Vector3d(5, 0, -4));
-        TransformGroup wFrameTG = G3f.axesCartesian2(wFrameT3D,
-                new double[] { 1, 1, 1 }, .2f, "world");
+        TransformGroup wFrameTG = G3f.axesCartesian2(wFrameT3D, new double[] {
+                1, 1, 1 }, .2f, "world");
         group.addChild(wFrameTG);
 
         // Light
@@ -294,9 +297,10 @@ public class Visualizer {
         }
         viewerTransform.setRotation(mat);
         viewerTransform.setTranslation(viewerPos);
-//        universe.getViewingPlatform().getViewPlatformTransform()
-//                .setTransform(viewerTransform);
-        mainCamera.getViewPlatformTransformGroup().setTransform(viewerTransform);
+        // universe.getViewingPlatform().getViewPlatformTransform()
+        // .setTransform(viewerTransform);
+        mainCamera.getViewPlatformTransformGroup()
+                .setTransform(viewerTransform);
     }
 
     public void update() {
