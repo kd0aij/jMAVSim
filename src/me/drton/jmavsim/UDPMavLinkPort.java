@@ -1,9 +1,5 @@
 package me.drton.jmavsim;
 
-import org.mavlink.IMAVLinkMessage;
-import org.mavlink.MAVLinkReader;
-import org.mavlink.messages.MAVLinkMessage;
-
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,6 +7,10 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
+
+import org.mavlink.IMAVLinkMessage;
+import org.mavlink.MAVLinkReader;
+import org.mavlink.messages.MAVLinkMessage;
 
 /**
  * User: ton Date: 02.12.13 Time: 20:56

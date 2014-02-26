@@ -1,31 +1,29 @@
 package me.drton.jmavsim;
 
-import com.sun.j3d.utils.geometry.Sphere;
+import static java.lang.System.out;
 
-import javax.media.j3d.Material;
-import javax.media.j3d.Transform3D;
-import javax.media.j3d.TransformGroup;
-import javax.vecmath.Color3f;
-import javax.vecmath.Matrix3d;
-import javax.vecmath.Vector3d;
-import javax.vecmath.Vector4d;
-
-import sun.reflect.generics.tree.BaseType;
-
-import java.io.File;
-import java.io.FileFilter;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.security.acl.Group;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.logging.StreamHandler;
 
-import static java.lang.System.*;
+import javax.media.j3d.Appearance;
+import javax.media.j3d.Material;
+import javax.media.j3d.Transform3D;
+import javax.media.j3d.TransformGroup;
+import javax.vecmath.AxisAngle4d;
+import javax.vecmath.Matrix3d;
+import javax.vecmath.Vector3d;
+import javax.vecmath.Vector4d;
+
+import com.sun.j3d.utils.geometry.Cylinder;
+import com.sun.j3d.utils.geometry.Sphere;
 
 /**
  * User: ton Date: 01.02.14 Time: 22:12
@@ -60,6 +58,8 @@ public class Target extends VisualObject {
     private Vector3d c_M = new Vector3d();
     private Vector3d leg = new Vector3d();
     private Transform3D baseT3D = new Transform3D();
+    private Transform3D impArrowT3D = new Transform3D();
+    private TransformGroup impArrowTG = new TransformGroup();
 
     public boolean isApplyAccel() {
         return applyAccel;
@@ -104,20 +104,6 @@ public class Target extends VisualObject {
         return I_c;
     }
 
-    static Color3f black = new Color3f(0.0f, 0.0f, 0.0f);
-    static Color3f white = new Color3f(0.5f, 0.5f, 0.5f);
-    static Color3f red = new Color3f(1.0f, 0.0f, 0.0f);
-    static Color3f dimred = new Color3f(0.2f, 0.0f, 0.0f);
-    static Color3f green = new Color3f(0.0f, 1.0f, 0.0f);
-    static Color3f dimgreen = new Color3f(0.0f, 0.2f, 0.0f);
-    static Color3f blue = new Color3f(0.0f, 0.0f, 1.0f);
-    static Color3f dimblue = new Color3f(0.0f, 0.0f, 0.2f);
-    static Color3f grey1 = new Color3f(0.8f, 0.8f, 0.8f);
-    static Color3f grey2 = new Color3f(0.16f, 0.16f, 0.16f);
-
-    static Color3f orange = new Color3f(0.67f, 0.33f, 0.0f);
-    static Color3f yellow = new Color3f(1f, 1f, 0.0f);
-
     public Target(World world, double size) throws FileNotFoundException {
         super(world);
         // this sets the top logging level (above the file and console handlers)
@@ -158,20 +144,61 @@ public class Target extends VisualObject {
             if (e.w == 0)
                 dSize = (float) (size / 4);
             Sphere massShape = new Sphere(dSize);
-            massShape.getAppearance().setMaterial(
-                    new Material(red, black, dimred, red, 64.0f));
+            massShape.getAppearance()
+                    .setMaterial(
+                            new Material(C3f.red, C3f.black, C3f.dimred,
+                                    C3f.red, 64.0f));
             pointMassTG.addChild(massShape);
             baseTG.addChild(pointMassTG);
+            
+            // connect each point mass to center of mass
+            // line from c_M to point mass is massC
+            Vector3d dir = new Vector3d(massC);
+            dir.normalize();
+            double angle = Math.acos(dir.y);
+            Vector3d axis = new Vector3d();
+            axis.cross(new Vector3d(0,1,0), massC);
+            AxisAngle4d cAA = new AxisAngle4d(axis, angle);
+            Vector3d trans = new Vector3d(0, massC.length()/2, 0);
+            Transform3D cT3D = new Transform3D();
+            cT3D.set(cAA);
+            cT3D.transform(trans);
+            cT3D.setTranslation(trans);
+            TransformGroup cTG = new TransformGroup(cT3D);
+            Cylinder cCyl = new Cylinder((float) (0.05 * size), (float) massC.length());
+            cCyl.getAppearance()
+                    .setMaterial(
+                            new Material(C3f.black, C3f.black, C3f.black,
+                                    C3f.black, 64.0f));
+            cTG.addChild(cCyl);
+            baseTG.addChild(cTG);
         }
 
         // draw center of mass at origin
         Transform3D cMassT3D = new Transform3D();
         TransformGroup pointMassTG = new TransformGroup(cMassT3D);
         Sphere massShape = new Sphere((float) size / 10);
-        massShape.getAppearance().setMaterial(
-                new Material(black, black, black, black, 64.0f));
+        massShape.getAppearance()
+                .setMaterial(
+                        new Material(C3f.black, C3f.black, C3f.black,
+                                C3f.black, 64.0f));
         pointMassTG.addChild(massShape);
         baseTG.addChild(pointMassTG);
+
+        // draw torque impulse vector
+        Appearance impAppearance = new Appearance();
+        impAppearance.setMaterial(new Material(C3f.green, C3f.black,
+                C3f.dimgreen, C3f.green, 64.0f));
+        TransformGroup impArrow = GraphicsUtils.axisArrow((float) (.1 * size),
+                (float) (3 * size), impAppearance);
+        impArrowT3D.rotX(Math.PI / 2);
+        impArrowTG.setTransform(impArrowT3D);
+        impArrowTG.addChild(impArrow);
+        baseTG.addChild(impArrowTG);
+
+        impArrowTG.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
+        baseTG.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
+        transformGroup.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
 
         transformGroup.addChild(baseTG);
     }
@@ -226,7 +253,7 @@ public class Target extends VisualObject {
             zdamping = 0;
             Vector3d delT = new Vector3d(0.0, 0.0, 0.02);
             torque.add(delT);
-            if (rotationRate.length() >= 4) {
+            if (rotationRate.length() >= 2) {
                 gtReport.report_now(gyroAcc, "gyroAcc");
                 out.println("^^^ finished spin-up");
                 tState = 2;
@@ -250,16 +277,23 @@ public class Target extends VisualObject {
             Matrix3d earth2body = new Matrix3d(rotation);
             earth2body.transpose();
             earth2body.transform(impulse);
+            impArrowT3D.set(earth2body);
+            impArrowTG.setTransform(impArrowT3D);
+            impArrowT3D.setScale(1);
             // impulse.scale(.2);
             torque.add(impulse);
             // impT.scale(-1);
             // damping = .002;
             out.println("Y torque impulse\n");
+            lastImpulse = clockTime;
             tState = 3;
             break;
         case 3:
             delT = new Vector3d(0.0, 0.0, 0.0);
             torque.add(delT);
+            // impArrowT3D.setScale(0.1);
+            // impArrowTG.setTransform(impArrowT3D);
+
             // delay then back to state 2
             if (clockTime - lastImpulse >= 5000) {
                 lastImpulse = clockTime;

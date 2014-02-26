@@ -6,8 +6,6 @@ import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.LayoutManager2;
 import java.awt.event.ActionEvent;
-import java.awt.event.ComponentEvent;
-import java.awt.event.ComponentListener;
 
 import javax.media.j3d.Canvas3D;
 import javax.swing.JButton;

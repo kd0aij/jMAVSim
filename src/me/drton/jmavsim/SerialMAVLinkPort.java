@@ -1,17 +1,17 @@
 package me.drton.jmavsim;
 
+import java.io.DataInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+
 import jssc.SerialPort;
 import jssc.SerialPortException;
+
 import org.mavlink.IMAVLinkMessage;
 import org.mavlink.MAVLinkReader;
 import org.mavlink.messages.MAVLinkMessage;
 import org.mavlink.messages.common.msg_heartbeat;
 import org.mavlink.messages.common.msg_radio_status;
-
-import java.io.DataInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.InetSocketAddress;
 
 /**
  * User: ton Date: 28.11.13 Time: 23:30

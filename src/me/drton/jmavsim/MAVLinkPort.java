@@ -1,8 +1,8 @@
 package me.drton.jmavsim;
 
-import org.mavlink.messages.MAVLinkMessage;
-
 import java.io.IOException;
+
+import org.mavlink.messages.MAVLinkMessage;
 
 /**
  * User: ton Date: 02.12.13 Time: 20:56

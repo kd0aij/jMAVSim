@@ -1,12 +1,13 @@
 package me.drton.jmavsim;
 
-import com.sun.j3d.loaders.Scene;
-import com.sun.j3d.loaders.objectfile.ObjectFile;
+import java.io.FileNotFoundException;
 
 import javax.media.j3d.BranchGroup;
 import javax.media.j3d.Transform3D;
 import javax.media.j3d.TransformGroup;
-import java.io.FileNotFoundException;
+
+import com.sun.j3d.loaders.Scene;
+import com.sun.j3d.loaders.objectfile.ObjectFile;
 
 /**
  * User: ton Date: 02.02.14 Time: 11:56

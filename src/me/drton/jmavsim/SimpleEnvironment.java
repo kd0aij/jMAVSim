@@ -1,7 +1,8 @@
 package me.drton.jmavsim;
 
-import javax.vecmath.Vector3d;
 import java.util.Random;
+
+import javax.vecmath.Vector3d;
 
 /**
  * User: ton Date: 28.11.13 Time: 22:40
