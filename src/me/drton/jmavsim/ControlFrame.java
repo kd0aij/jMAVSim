@@ -110,6 +110,10 @@ public class ControlFrame extends JFrame {
 
 		Canvas3D c3d = sim.visualizer.getCanvas3D();
 		contentPane.add(c3d, BorderLayout.CENTER);
+		
+        Canvas3D dbgCanvas = sim.visualizer.dbgCamera.getCanvas3D();
+        contentPane.add(c3d, BorderLayout.EAST);
+
 }
 
 	public void fullScreen(GraphicsDevice device) {

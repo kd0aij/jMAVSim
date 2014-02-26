@@ -40,7 +40,7 @@ import com.sun.j3d.utils.geometry.NormalGenerator;
 import com.sun.j3d.utils.geometry.Sphere;
 import com.sun.j3d.utils.geometry.Stripifier;
 
-public class GraphicsUtils {
+public class G3f {
 	static private Logger logger;
 	static {
 		logger = Logger.getLogger("graphicsUtils");
@@ -48,20 +48,31 @@ public class GraphicsUtils {
 		handler[0].setFormatter(new BriefFormatter());
 	}
 
-	//  final static StaticColors sc = new StaticColors();
+    final public static Color3f black = new Color3f(0.0f, 0.0f, 0.0f);
+    final public static Color3f grey = new Color3f(0.5f, 0.5f, 0.5f);
+    final public static Color3f grey1 =  new Color3f(0.8f, 0.8f, 0.8f);
+    final public static Color3f grey2 =  new Color3f(0.16f, 0.16f, 0.16f);
+    final public static Color3f white = new Color3f(1.0f, 1.0f, 1.0f);
+
+    final public static Color3f red =   new Color3f(1.0f, 0.0f, 0.0f);
+    final public static Color3f dimred = new Color3f(0.2f, 0.0f, 0.0f);
+    final public static Color3f orange =  new Color3f(0.67f, 0.33f, 0.0f);
+    final public static Color3f yellow =  new Color3f(1f, 1f, 0.0f);
+    final public static Color3f dimyellow = new Color3f(0.4f, 0.4f, 0.0f);
+    final public static Color3f green = new Color3f(0.0f, 1.0f, 0.0f);
+    final public static Color3f dimgreen = new Color3f(0.0f, 0.2f, 0.0f);
+    final public static Color3f blue =  new Color3f(0.0f, 0.0f, 1.0f);
+    final public static Color3f dimblue = new Color3f(0.0f, 0.0f, 0.2f);
+
+    //  final static StaticColors sc = new StaticColors();
 	static TransparencyAttributes transAttrs =
 		new TransparencyAttributes(TransparencyAttributes.NICEST, 0.4f);
 	static FontExtrusion fext = new FontExtrusion();
 	static Font3D font = new Font3D(new Font("Arial", Font.PLAIN, 1), fext);
 
-	// this is necessary to properly resize a Canvas3D embedded in a JFrame
-	public void addResizeListener(JFrame frame) {
-		frame.addComponentListener(new Canvas3D_resize(frame));
-	}
-
 	// given a transform relative to the universe, draw a set of axes
 	// make the axis arrows have length +/- length[i]/2
-	public static TransformGroup axesCartesian(
+	public static TransformGroup axesCartesian (
 		Transform3D t3d,
 		double[] length,
 		float scale,
@@ -77,32 +88,32 @@ public class GraphicsUtils {
 
 		// ambient, emissive, diffuse, specular, shininess
 		xAppearance.setMaterial(
-			new Material(C3f.red, C3f.black, C3f.red, C3f.red, 64.0f));
+			new Material(red, black, red, red, 64.0f));
 		mxAppearance.setMaterial(
-			new Material(C3f.dimred, C3f.black, C3f.dimred, C3f.dimred, 64.0f));
+			new Material(dimred, black, dimred, dimred, 64.0f));
 
 		yAppearance.setMaterial(
-			new Material(C3f.green, C3f.black, C3f.green, C3f.green, 64.0f));
+			new Material(green, black, green, green, 64.0f));
 		myAppearance.setMaterial(
 			new Material(
-				C3f.dimgreen,
-				C3f.black,
-				C3f.dimgreen,
-				C3f.dimgreen,
+				dimgreen,
+				black,
+				dimgreen,
+				dimgreen,
 				64.0f));
 
 		zAppearance.setMaterial(
-			new Material(C3f.blue, C3f.black, C3f.blue, C3f.blue, 64.0f));
+			new Material(blue, black, blue, blue, 64.0f));
 		mzAppearance.setMaterial(
 			new Material(
-				C3f.dimblue,
-				C3f.black,
-				C3f.dimblue,
-				C3f.dimblue,
+				dimblue,
+				black,
+				dimblue,
+				dimblue,
 				64.0f));
 
 		sAppearance.setMaterial(
-			new Material(C3f.white, C3f.black, C3f.black, C3f.white, 1.0f));
+			new Material(white, black, black, white, 1.0f));
 
 		TransformGroup objMatrixGroup = new TransformGroup();
 		objMatrixGroup.setTransform(t3d);
@@ -217,38 +228,37 @@ public class GraphicsUtils {
 
 		// ambient, emissive, diffuse, specular, shininess
 		xAppearance.setMaterial(
-			new Material(C3f.red, C3f.black, C3f.red, C3f.red, 64.0f));
+			new Material(red, black, red, red, 64.0f));
 		mxAppearance.setMaterial(
-			new Material(C3f.dimred, C3f.black, C3f.dimred, C3f.dimred, 64.0f));
+			new Material(dimred, black, dimred, dimred, 64.0f));
 
 		yAppearance.setMaterial(
-			new Material(C3f.green, C3f.black, C3f.green, C3f.green, 64.0f));
+			new Material(green, black, green, green, 64.0f));
 		myAppearance.setMaterial(
 			new Material(
-				C3f.dimgreen,
-				C3f.black,
-				C3f.dimgreen,
-				C3f.dimgreen,
+				dimgreen,
+				black,
+				dimgreen,
+				dimgreen,
 				64.0f));
 
 		zAppearance.setMaterial(
-			new Material(C3f.blue, C3f.black, C3f.blue, C3f.blue, 64.0f));
+			new Material(blue, black, blue, blue, 64.0f));
 		mzAppearance.setMaterial(
 			new Material(
-				C3f.dimblue,
-				C3f.black,
-				C3f.dimblue,
-				C3f.dimblue,
+				dimblue,
+				black,
+				dimblue,
+				dimblue,
 				64.0f));
 
 		sAppearance.setMaterial(
-			new Material(C3f.white, C3f.black, C3f.black, C3f.white, 1.0f));
+			new Material(white, black, black, white, 1.0f));
 
 		TransformGroup objMatrixGroup = new TransformGroup();
 		objMatrixGroup.setTransform(t3d);
 
-		String lTxt = name;
-		Text3D yLabel = new Text3D(font, lTxt, new Point3f(0.0f, -1.5f, 0.0f));
+		Text3D yLabel = new Text3D(font, name, new Point3f(0.0f, -1.5f, 0.0f));
 
 		Shape3D tlabelY = new Shape3D();
 		Transform3D ylTransform = new Transform3D();
@@ -269,14 +279,6 @@ public class GraphicsUtils {
 		xAxisG.addChild(xArrow);
 		objMatrixGroup.addChild(xAxisG);
 
-		// Create an arrow for the minus x axis.
-		Transform3D mxAxis = new Transform3D();
-		mxAxis.rotZ(Math.PI / 2.0);
-		TransformGroup mxAxisG = new TransformGroup(mxAxis);
-		TransformGroup mxArrow = axisArrow(cRadius, cLen, mxAppearance);
-		mxAxisG.addChild(mxArrow);
-		objMatrixGroup.addChild(mxAxisG);
-
 		// Create an arrow for the y axis.
 		cLen = (float)length[1];
 		Transform3D yAxis = new Transform3D();
@@ -284,15 +286,6 @@ public class GraphicsUtils {
 		TransformGroup yArrow = axisArrow(cRadius, cLen, yAppearance);
 		yAxisG.addChild(yArrow);
 		objMatrixGroup.addChild(yAxisG);
-
-		// Create an arrow for the minus y axis.
-		Transform3D myAxis = new Transform3D();
-		myAxis.rotZ(Math.PI);
-		TransformGroup myAxisG = new TransformGroup(myAxis);
-		TransformGroup myArrow = axisArrow(cRadius, cLen, myAppearance);
-		myAxisG.addChild(labelGy);
-		myAxisG.addChild(myArrow);
-		objMatrixGroup.addChild(myAxisG);
 
 		// Create an arrow for the z axis.
 		cLen = (float)length[2];
@@ -302,14 +295,6 @@ public class GraphicsUtils {
 		TransformGroup zArrow = axisArrow(cRadius, cLen, zAppearance);
 		zAxisG.addChild(zArrow);
 		objMatrixGroup.addChild(zAxisG);
-
-		// Create an arrow for the minus z axis.
-		Transform3D mzAxis = new Transform3D();
-		mzAxis.rotX(-Math.PI / 2.0);
-		TransformGroup mzAxisG = new TransformGroup(mzAxis);
-		TransformGroup mzArrow = axisArrow(cRadius, cLen, mzAppearance);
-		mzAxisG.addChild(mzArrow);
-		objMatrixGroup.addChild(mzAxisG);
 
 		Sphere sphere = new Sphere(1.5f * cRadius, sAppearance);
 		objMatrixGroup.addChild(sphere);
@@ -336,32 +321,32 @@ public class GraphicsUtils {
 
 		// ambient, emissive, diffuse, specular, shininess
 		xAppearance.setMaterial(
-			new Material(C3f.red, C3f.black, C3f.dimred, C3f.red, 64.0f));
+			new Material(red, black, dimred, red, 64.0f));
 		mxAppearance.setMaterial(
-			new Material(C3f.dimred, C3f.black, C3f.dimred, C3f.yellow, 64.0f));
+			new Material(dimred, black, dimred, yellow, 64.0f));
 
 		yAppearance.setMaterial(
-			new Material(C3f.green, C3f.black, C3f.dimgreen, C3f.green, 64.0f));
+			new Material(green, black, dimgreen, green, 64.0f));
 		myAppearance.setMaterial(
 			new Material(
-				C3f.dimgreen,
-				C3f.black,
-				C3f.dimgreen,
-				C3f.yellow,
+				dimgreen,
+				black,
+				dimgreen,
+				yellow,
 				64.0f));
 
 		zAppearance.setMaterial(
-			new Material(C3f.blue, C3f.black, C3f.dimblue, C3f.blue, 64.0f));
+			new Material(blue, black, dimblue, blue, 64.0f));
 		mzAppearance.setMaterial(
 			new Material(
-				C3f.dimblue,
-				C3f.black,
-				C3f.dimblue,
-				C3f.yellow,
+				dimblue,
+				black,
+				dimblue,
+				yellow,
 				64.0f));
 
 		sAppearance.setMaterial(
-			new Material(C3f.white, C3f.black, C3f.black, C3f.white, 1.0f));
+			new Material(white, black, black, white, 1.0f));
 
 		TransformGroup objMatrixGroup = new TransformGroup();
 		objMatrixGroup.setTransform(t3d);
@@ -776,7 +761,7 @@ public class GraphicsUtils {
 		Point3f spec = new Point3f(color);
 		spec.scale(0.1f);
 		Color3f spec3f = new Color3f(spec);
-		Material mat = new Material(color, C3f.black, color, spec3f, 32.0f);
+		Material mat = new Material(color, black, color, spec3f, 32.0f);
 		look.setMaterial(mat);
 
 		PolygonAttributes pa = new PolygonAttributes();

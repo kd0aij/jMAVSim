@@ -42,10 +42,8 @@ public class Target extends VisualObject {
             logFileHandler.setFormatter(new BriefFormatter());
             logger.addHandler(logFileHandler);
         } catch (SecurityException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
     }
@@ -146,8 +144,8 @@ public class Target extends VisualObject {
             Sphere massShape = new Sphere(dSize);
             massShape.getAppearance()
                     .setMaterial(
-                            new Material(C3f.red, C3f.black, C3f.dimred,
-                                    C3f.red, 64.0f));
+                            new Material(G3f.red, G3f.black, G3f.dimred,
+                                    G3f.red, 64.0f));
             pointMassTG.addChild(massShape);
             baseTG.addChild(pointMassTG);
             
@@ -168,8 +166,8 @@ public class Target extends VisualObject {
             Cylinder cCyl = new Cylinder((float) (0.05 * size), (float) massC.length());
             cCyl.getAppearance()
                     .setMaterial(
-                            new Material(C3f.black, C3f.black, C3f.black,
-                                    C3f.black, 64.0f));
+                            new Material(G3f.black, G3f.black, G3f.black,
+                                    G3f.black, 64.0f));
             cTG.addChild(cCyl);
             baseTG.addChild(cTG);
         }
@@ -180,16 +178,16 @@ public class Target extends VisualObject {
         Sphere massShape = new Sphere((float) size / 10);
         massShape.getAppearance()
                 .setMaterial(
-                        new Material(C3f.black, C3f.black, C3f.black,
-                                C3f.black, 64.0f));
+                        new Material(G3f.black, G3f.black, G3f.black,
+                                G3f.black, 64.0f));
         pointMassTG.addChild(massShape);
         baseTG.addChild(pointMassTG);
 
         // draw torque impulse vector
         Appearance impAppearance = new Appearance();
-        impAppearance.setMaterial(new Material(C3f.green, C3f.black,
-                C3f.dimgreen, C3f.green, 64.0f));
-        TransformGroup impArrow = GraphicsUtils.axisArrow((float) (.1 * size),
+        impAppearance.setMaterial(new Material(G3f.green, G3f.black,
+                G3f.dimgreen, G3f.green, 64.0f));
+        TransformGroup impArrow = G3f.axisArrow((float) (.1 * size),
                 (float) (3 * size), impAppearance);
         impArrowT3D.rotX(Math.PI / 2);
         impArrowTG.setTransform(impArrowT3D);

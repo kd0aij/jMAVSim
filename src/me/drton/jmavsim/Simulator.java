@@ -9,6 +9,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import javax.media.j3d.Transform3D;
+import javax.media.j3d.TransformGroup;
 import javax.vecmath.Matrix3d;
 import javax.vecmath.Vector3d;
 
@@ -82,6 +84,7 @@ public class Simulator extends Thread {
         target.initGPS(55.753395, 37.625427);
         target.getPosition().set(5, 0, -5);
         world.addObject(target);
+        
         // Create visualizer
         visualizer = new Visualizer(world);
 
