@@ -138,8 +138,8 @@ public class ControlFrame extends JFrame {
     void fixedViewButton_actionPerformed(ActionEvent e) {
         if (fixedViewButton.isSelected()) {
             sim.visualizer.setViewerTarget(sim.vehicle);
-            autoRotateButton.setSelected(true);
-            sim.visualizer.setAutoRotate(true);
+//            autoRotateButton.setSelected(true);
+//            sim.visualizer.setAutoRotate(true);
             sim.visualizer.initPos();
             sim.visualizer.setViewerPosition(null);
         } else {
