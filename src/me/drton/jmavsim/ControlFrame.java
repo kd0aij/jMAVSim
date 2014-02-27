@@ -1,6 +1,7 @@
 package me.drton.jmavsim;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GraphicsDevice;
@@ -22,6 +23,8 @@ import javax.swing.JPopupMenu;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JToggleButton;
 import javax.swing.UIManager;
+
+import com.sun.j3d.utils.behaviors.mouse.MouseRotate;
 
 public class ControlFrame extends JFrame {
     /**
@@ -82,7 +85,7 @@ public class ControlFrame extends JFrame {
         contentPane.setLayout(new BorderLayout());
 
         Canvas3D mainCanvas = sim.visualizer.getMainCamera().getCanvas3D();
-        mainCanvas.setSize(new Dimension(600, 400));
+        mainCanvas.setSize(new Dimension(300, 200));
         mainPanel.setLayout(new BorderLayout());
         mainPanel.add(mainCanvas, BorderLayout.CENTER);
 
@@ -90,8 +93,8 @@ public class ControlFrame extends JFrame {
         dbgCanvas.setSize(new Dimension(300, 200));
         dbgPanel.setLayout(new BorderLayout());
         dbgPanel.add(dbgCanvas, BorderLayout.CENTER);
-
-        // doesn't work in 6.0_45, but does with java7
+        
+        // doesn't work in 6.0_45, but does with java-7
         JPopupMenu.setDefaultLightWeightPopupEnabled(false);
         JMenuBar menubar = new JMenuBar();
         this.setJMenuBar(menubar);
@@ -154,7 +157,8 @@ public class ControlFrame extends JFrame {
             }
         });
 
-        contentPane.setLayout(new GridLayout(1, 2));
+        contentPane.setLayout(new GridLayout(1, 2, 2, 0));
+        contentPane.setBackground(Color.black);
         contentPane.add(mainPanel);
         contentPane.add(dbgPanel);
     }

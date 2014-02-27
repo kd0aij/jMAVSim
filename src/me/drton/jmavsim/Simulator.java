@@ -320,7 +320,6 @@ public class Simulator extends Thread {
                     // start main thread
                     sim.start();
                 } catch (Exception e) {
-                    // TODO Auto-generated catch block
                     e.printStackTrace();
                 }
             }
@@ -329,7 +328,6 @@ public class Simulator extends Thread {
 
     protected static void constructGUI(Simulator sim) throws HeadlessException {
         // construct Simulator dialog
-        sim.visualizer.canvas3D.setSize(800, 600);
         cPanel = new ControlFrame(sim);
         cPanel.addWindowListener(new WindowAdapter() {
             public void windowClosing(WindowEvent e) {

@@ -251,10 +251,10 @@ public class Target extends VisualObject {
             zdamping = 0;
             Vector3d delT = new Vector3d(0.0, 0.0, 0.02);
             torque.add(delT);
-            if (rotationRate.length() >= 8) {
+            if (rotationRate.length() >= 2) {
                 gtReport.report_now(gyroAcc, "gyroAcc");
                 out.println("^^^ finished spin-up");
-                tState = 2;
+                tState = 4;
             }
             break;
         case 1:

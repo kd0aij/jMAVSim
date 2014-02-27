@@ -36,8 +36,14 @@ import javax.vecmath.TexCoord2f;
 import javax.vecmath.Vector3d;
 import javax.vecmath.Vector3f;
 
+import com.sun.j3d.utils.behaviors.mouse.MouseRotate;
+import com.sun.j3d.utils.behaviors.mouse.MouseTranslate;
+import com.sun.j3d.utils.behaviors.mouse.MouseZoom;
 import com.sun.j3d.utils.geometry.Sphere;
 import com.sun.j3d.utils.image.TextureLoader;
+import com.sun.j3d.utils.picking.behaviors.PickRotateBehavior;
+import com.sun.j3d.utils.picking.behaviors.PickTranslateBehavior;
+import com.sun.j3d.utils.picking.behaviors.PickZoomBehavior;
 import com.sun.j3d.utils.universe.SimpleUniverse;
 
 class CameraView {
@@ -102,7 +108,6 @@ public class Visualizer {
     private static Color3f white = new Color3f(1.0f, 1.0f, 1.0f);
     private VirtualUniverse universe;
     private Locale locale;
-    // private SimpleUniverse universe;
     protected Canvas3D canvas3D;
     private World world;
     private BoundingSphere sceneBounds = new BoundingSphere(
@@ -113,6 +118,8 @@ public class Visualizer {
     private VisualObject viewerTarget;
     private MechanicalObject viewerPosition;
     protected CameraView mainCamera;
+    private boolean topView = false;
+
     public CameraView getMainCamera() {
         return mainCamera;
     }
@@ -141,36 +148,67 @@ public class Visualizer {
         canvas3D = new Canvas3D(config);
         universe = new VirtualUniverse();
         locale = new Locale(universe);
-        // universe = new SimpleUniverse(canvas3D);
-        // universe.getViewer().getView().setBackClipDistance(100000.0);
         createEnvironment();
-        Map vuMap = universe.getProperties();
+
+        @SuppressWarnings("rawtypes")
+        Map vuMap = VirtualUniverse.getProperties();
         System.out.println(" Java3D version : " + vuMap.get("j3d.version"));
         System.out.println(" Java3D vendor : " + vuMap.get("j3d.vendor"));
         System.out.println(" Java3D renderer: " + vuMap.get("j3d.renderer"));
 
         dbgCamera = new CameraView();
+        // orient viewplatform looking down +z axis from a height of 20m
         TransformGroup vpTG = dbgCamera.getViewPlatformTransformGroup();
         Transform3D xform = new Transform3D();
-        Vector3f vec = new Vector3f(4.0f, 0.0f, 0.0f);
-        xform.set(vec);
         Transform3D xform2 = new Transform3D();
-        xform2.rotZ(Math.PI / 2);
-        xform.mul(xform2);
-        xform2.rotX(-Math.PI / 2);
-        xform.mul(xform2);
+        if (topView) {
+            Vector3f vec = new Vector3f(0.0f, 0.0f, -20.0f);
+            xform.set(vec);
+            xform2.rotX(Math.PI);
+            xform.mul(xform2);
+            xform2.rotZ(-Math.PI / 2);
+            xform.mul(xform2);
+        } else {
+            Vector3f vec = new Vector3f(0.0f, 0.0f, -20.0f);
+            xform.set(vec);
+            xform2.rotZ(Math.PI / 2);
+            xform.mul(xform2);
+            xform2.rotX(-Math.PI / 2);
+            xform.mul(xform2);            
+        }
         vpTG.setTransform(xform);
         View view = dbgCamera.getView();
         view.setProjectionPolicy(View.PERSPECTIVE_PROJECTION);
         dbgCamera.getView().setBackClipDistance(100000.0);
 
+        double scale = sceneBounds.getRadius() / 1000000;
+
+        MouseRotate rbehavior = new MouseRotate();
+        rbehavior.setFactor(-.0125, .0125);
+        rbehavior.setTransformGroup(vpTG);
+        vpTG.addChild(rbehavior);
+        rbehavior.setSchedulingBounds(sceneBounds);
+
+        MouseTranslate tbehavior = new MouseTranslate();
+        tbehavior.setFactor(-scale * .75, scale * .75);
+        tbehavior.setTransformGroup(vpTG);
+        vpTG.addChild(tbehavior);
+        tbehavior.setSchedulingBounds(sceneBounds);
+
+        MouseZoom zbehavior = new MouseZoom();
+        zbehavior.setFactor(-scale * .75);
+        zbehavior.setTransformGroup(vpTG);
+        vpTG.addChild(zbehavior);
+        zbehavior.setSchedulingBounds(sceneBounds);
+
         mainCamera = new CameraView();
         vpTG = mainCamera.getViewPlatformTransformGroup();
         xform = new Transform3D();
-        xform2.rotZ(Math.PI / 2);
-        xform.mul(xform2);
-        xform2.rotX(-Math.PI / 2);
-        xform.mul(xform2);
+        Transform3D xform3 = new Transform3D();
+        xform3.rotZ(Math.PI / 2);
+        xform.mul(xform3);
+        xform3.rotX(-Math.PI / 2);
+        xform.mul(xform3);
         vpTG.setTransform(xform);
         view = mainCamera.getView();
         view.setProjectionPolicy(View.PERSPECTIVE_PROJECTION);
@@ -179,11 +217,38 @@ public class Visualizer {
         locale.addBranchGraph(dbgCamera.getRootBG());
         locale.addBranchGraph(mainCamera.getRootBG());
 
+        BranchGroup objRoot = new BranchGroup();
+        TransformGroup sceneTrans = new TransformGroup();
+        objRoot.addChild(sceneTrans);
+        sceneTrans.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
+        sceneTrans.setCapability(TransformGroup.ALLOW_TRANSFORM_READ);
+        sceneTrans.setCapability(TransformGroup.ENABLE_PICK_REPORTING);
+
         for (WorldObject object : world.getObjects()) {
             if (object instanceof VisualObject) {
-                locale.addBranchGraph(((VisualObject) object).getBranchGroup());
+                sceneTrans.addChild(((VisualObject) object).getBranchGroup());
             }
         }
+        // addMouseBhvs(objRoot, dbgCamera.getCanvas3D());
+
+        objRoot.compile();
+        locale.addBranchGraph(objRoot);
+    }
+
+    public void addMouseBhvs(BranchGroup rootBG, Canvas3D canvas) {
+        BoundingSphere bounds = new BoundingSphere(new Point3d(0.0, 0.0, 0.0),
+                1000000.0);
+
+        PickRotateBehavior rotbeh = new PickRotateBehavior(rootBG, canvas,
+                bounds);
+        rootBG.addChild(rotbeh);
+
+        PickZoomBehavior zoombeh = new PickZoomBehavior(rootBG, canvas, bounds);
+        rootBG.addChild(zoombeh);
+
+        PickTranslateBehavior transbeh = new PickTranslateBehavior(rootBG,
+                canvas, bounds);
+        rootBG.addChild(transbeh);
     }
 
     public Canvas3D getCanvas3D() {
@@ -294,13 +359,21 @@ public class Visualizer {
             viewerTransform.setRotation(mat);
             viewerTransform.setTranslation(viewerPos);
         }
-        // universe.getViewingPlatform().getViewPlatformTransform()
-        // .setTransform(viewerTransform);
         mainCamera.getViewPlatformTransformGroup()
-        .setTransform(viewerTransform);
-        
-        dbgCamera.getViewPlatformTransformGroup()
-        .setTransform(viewerTransform);
+                .setTransform(viewerTransform);
+
+        if (!topView) {
+            Vector3d trans = new Vector3d();
+            viewerTransform.get(trans);
+            Vector3d baseline = new Vector3d(-0.5, 0, 0);
+            Matrix3d rot = new Matrix3d();
+            viewerTransform.get(rot);
+            rot.transform(baseline);
+            trans.add(baseline);
+            viewerTransform.setTranslation(trans);
+            dbgCamera.getViewPlatformTransformGroup().setTransform(
+                    viewerTransform);
+        }
     }
 
     public void update() {
