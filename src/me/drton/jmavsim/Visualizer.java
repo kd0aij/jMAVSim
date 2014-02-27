@@ -113,6 +113,14 @@ public class Visualizer {
     private VisualObject viewerTarget;
     private MechanicalObject viewerPosition;
     protected CameraView mainCamera;
+    public CameraView getMainCamera() {
+        return mainCamera;
+    }
+
+    public CameraView getDbgCamera() {
+        return dbgCamera;
+    }
+
     protected CameraView dbgCamera;
 
     private boolean autoRotate = true;
@@ -133,14 +141,14 @@ public class Visualizer {
         canvas3D = new Canvas3D(config);
         universe = new VirtualUniverse();
         locale = new Locale(universe);
-//        universe = new SimpleUniverse(canvas3D);
-//        universe.getViewer().getView().setBackClipDistance(100000.0);
+        // universe = new SimpleUniverse(canvas3D);
+        // universe.getViewer().getView().setBackClipDistance(100000.0);
         createEnvironment();
         Map vuMap = universe.getProperties();
         System.out.println(" Java3D version : " + vuMap.get("j3d.version"));
         System.out.println(" Java3D vendor : " + vuMap.get("j3d.vendor"));
         System.out.println(" Java3D renderer: " + vuMap.get("j3d.renderer"));
-        
+
         dbgCamera = new CameraView();
         TransformGroup vpTG = dbgCamera.getViewPlatformTransformGroup();
         Transform3D xform = new Transform3D();
@@ -154,6 +162,7 @@ public class Visualizer {
         vpTG.setTransform(xform);
         View view = dbgCamera.getView();
         view.setProjectionPolicy(View.PERSPECTIVE_PROJECTION);
+        dbgCamera.getView().setBackClipDistance(100000.0);
 
         mainCamera = new CameraView();
         vpTG = mainCamera.getViewPlatformTransformGroup();
@@ -167,16 +176,15 @@ public class Visualizer {
         view.setProjectionPolicy(View.PERSPECTIVE_PROJECTION);
         mainCamera.getView().setBackClipDistance(100000.0);
 
-        locale.addBranchGraph(dbgCamera.getRootBG());        
-        locale.addBranchGraph(mainCamera.getRootBG());        
+        locale.addBranchGraph(dbgCamera.getRootBG());
+        locale.addBranchGraph(mainCamera.getRootBG());
 
         for (WorldObject object : world.getObjects()) {
             if (object instanceof VisualObject) {
-                locale.addBranchGraph(((VisualObject) object)
-                        .getBranchGroup());
+                locale.addBranchGraph(((VisualObject) object).getBranchGroup());
             }
         }
-}
+    }
 
     public Canvas3D getCanvas3D() {
         return canvas3D;
@@ -266,27 +274,16 @@ public class Visualizer {
         if (viewerPosition != null) {
             viewerPos.set(viewerPosition.getPosition());
         }
-        Matrix3d mat = new Matrix3d();
-        mat.setIdentity();
-        Matrix3d m1 = new Matrix3d();
         if (autoRotate) {
             if (viewerTarget != null) {
-                Vector3d pos = viewerTarget.getPosition();
-                mat.rotZ(Math.PI);
-                Vector3d dist = new Vector3d();
-                dist.sub(pos, viewerPos);
-                m1.rotY(Math.PI / 2);
-                mat.mul(m1);
-                m1.rotZ(-Math.PI / 2);
-                mat.mul(m1);
-                m1.rotY(-Math.atan2(pos.y - viewerPos.y, pos.x - viewerPos.x));
-                mat.mul(m1);
-                if (dist.length() > 1e-6) {
-                    m1.rotX(-Math.asin((pos.z - viewerPos.z) / dist.length()));
-                    mat.mul(m1);
-                }
+                viewerTransform.lookAt(new Point3d(viewerPos), new Point3d(
+                        viewerTarget.getPosition()), new Vector3d(0, 0, -1));
+                viewerTransform.invert();
             }
         } else {
+            Matrix3d mat = new Matrix3d();
+            mat.setIdentity();
+            Matrix3d m1 = new Matrix3d();
             if (viewerPosition != null) {
                 mat.mul(viewerPosition.getRotation());
             }
@@ -294,13 +291,16 @@ public class Visualizer {
             mat.mul(m1);
             m1.rotX(-Math.PI / 2);
             mat.mul(m1);
+            viewerTransform.setRotation(mat);
+            viewerTransform.setTranslation(viewerPos);
         }
-        viewerTransform.setRotation(mat);
-        viewerTransform.setTranslation(viewerPos);
         // universe.getViewingPlatform().getViewPlatformTransform()
         // .setTransform(viewerTransform);
         mainCamera.getViewPlatformTransformGroup()
-                .setTransform(viewerTransform);
+        .setTransform(viewerTransform);
+        
+        dbgCamera.getViewPlatformTransformGroup()
+        .setTransform(viewerTransform);
     }
 
     public void update() {
