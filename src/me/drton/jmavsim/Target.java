@@ -352,7 +352,7 @@ public class Target extends VisualObject {
                                     rotationRate.y, rotationRate.z),
                             String.format(
                                     "torque: (%7.3f, %7.3f, %7.3f), %s: (%7.3f, %7.3f, %7.3f), "
-                                            + "pos: (%7.3f, %7.3f, %7.3f)\n",
+                                            + "pos: (%7.3f, %7.3f, %7.3f)",
                                     torque.x, torque.y, torque.z, label, v.x,
                                     v.y, v.z, position.x, position.y,
                                     position.z) });

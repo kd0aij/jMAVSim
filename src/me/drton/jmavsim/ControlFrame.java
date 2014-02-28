@@ -9,7 +9,9 @@ import java.awt.GraphicsEnvironment;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.awt.Insets;
 import java.awt.LayoutManager2;
+import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 
 import javax.media.j3d.Canvas3D;
@@ -34,15 +36,13 @@ public class ControlFrame extends JFrame {
     JPanel contentPane;
     JPanel mainPanel = new JPanel();
     JPanel dbgPanel = new JPanel();
-//    // use a separate JFrame for the heavyweight Canvas3Ds
-//    JFrame heavyPanel = new JFrame();
+    // // use a separate JFrame for the heavyweight Canvas3Ds
+    // JFrame heavyPanel = new JFrame();
     JRadioButtonMenuItem autoRotateRadioButton;
     JRadioButtonMenuItem fixedViewRadioButton;
     JRadioButtonMenuItem moveTargetRadioButton;
 
     protected Simulator sim;
-
-    private boolean isFullScreen = false;
 
     public ControlFrame(Simulator sim) {
         super(GraphicsEnvironment.getLocalGraphicsEnvironment()
@@ -67,7 +67,6 @@ public class ControlFrame extends JFrame {
         }
         this.pack();
         this.setVisible(true);
-        // fullScreen(device);
     }
 
     private void initFrame() throws Exception {
@@ -79,21 +78,24 @@ public class ControlFrame extends JFrame {
         }
         GraphicsEnvironment env = GraphicsEnvironment
                 .getLocalGraphicsEnvironment();
-        env.getDefaultScreenDevice();
+        GraphicsDevice device = env.getDefaultScreenDevice();
+        Toolkit tkit = java.awt.Toolkit.getDefaultToolkit();
+        Dimension sdm = tkit.getScreenSize();
+        Insets insets = tkit.getScreenInsets(device.getDefaultConfiguration());
+        int swidth = sdm.width - insets.left;
+        this.setPreferredSize(new Dimension(swidth, swidth/2));
 
         contentPane = (JPanel) this.getContentPane();
         contentPane.setLayout(new BorderLayout());
 
         Canvas3D mainCanvas = sim.visualizer.getMainCamera().getCanvas3D();
-        mainCanvas.setSize(new Dimension(300, 200));
         mainPanel.setLayout(new BorderLayout());
         mainPanel.add(mainCanvas, BorderLayout.CENTER);
 
         Canvas3D dbgCanvas = sim.visualizer.getDbgCamera().getCanvas3D();
-        dbgCanvas.setSize(new Dimension(300, 200));
         dbgPanel.setLayout(new BorderLayout());
         dbgPanel.add(dbgCanvas, BorderLayout.CENTER);
-        
+
         // doesn't work in 6.0_45, but does with java-7
         JPopupMenu.setDefaultLightWeightPopupEnabled(false);
         JMenuBar menubar = new JMenuBar();
@@ -161,20 +163,5 @@ public class ControlFrame extends JFrame {
         contentPane.setBackground(Color.black);
         contentPane.add(mainPanel);
         contentPane.add(dbgPanel);
-    }
-
-    public void fullScreen(GraphicsDevice device) {
-        // isFullScreen = device.isFullScreenSupported();
-        // setUndecorated(isFullScreen);
-        // setResizable(!isFullScreen);
-        if (isFullScreen) {
-            // Full-screen mode
-            // device.setFullScreenWindow(this);
-            validate();
-        } else {
-            // Windowed mode
-            pack();
-            setVisible(true);
-        }
     }
 }
