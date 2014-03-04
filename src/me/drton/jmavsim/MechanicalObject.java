@@ -8,6 +8,7 @@ import javax.vecmath.Vector3d;
  * User: ton Date: 02.02.14 Time: 12:01
  */
 public abstract class MechanicalObject extends WorldObject {
+
     protected long lastTime = -1;
     protected Vector3d position = new Vector3d();
     protected Vector3d velocity = new Vector3d();
@@ -72,42 +73,45 @@ public abstract class MechanicalObject extends WorldObject {
     public void update(long t) {
         if (lastTime >= 0) {
             double dt = (t - lastTime) / 1000.0;
-            // Position
-            Vector3d dPos = new Vector3d(velocity);
-            dPos.scale(dt);
-            position.add(dPos);
-            // Velocity
-            acceleration = getForce();
-            acceleration.scale(1.0 / mass);
-            acceleration.add(getWorld().getEnvironment().getG());
-            if (position.z >= getWorld().getEnvironment().getGroundLevel(
-                    position)
-                    && velocity.z + acceleration.z * dt >= 0.0) {
-                // On ground
-                acceleration.x = -velocity.x / dt;
-                acceleration.y = -velocity.y / dt;
-                acceleration.z = -velocity.z / dt;
-                position.z = getWorld().getEnvironment().getGroundLevel(
-                        position);
-                // rotationRate.set(0.0, 0.0, 0.0);
-            }
-            Vector3d dVel = new Vector3d(acceleration);
-            dVel.scale(dt);
-            velocity.add(dVel);
-            // Rotation
-            if (rotationRate.length() > 0.0) {
-                Matrix3d r = new Matrix3d();
-                Vector3d rotationAxis = new Vector3d(rotationRate);
-                rotationAxis.normalize();
-                r.set(new AxisAngle4d(rotationAxis, rotationRate.length() * dt));
-                rotation.mulNormalize(r);
-            }
-            // use an adaptive dt to integrate omega
-            Vector3d exTorque = getTorque();
-            int wInc = (int)(1 + 500 * rotationRate.length());
+            if (dt > 0) {
+                // Position
+                Vector3d dPos = new Vector3d(velocity);
+                dPos.scale(dt);
+                position.add(dPos);
+                // Velocity
+                acceleration = getForce();
+                acceleration.scale(1.0 / mass);
+                acceleration.add(getWorld().getEnvironment().getG());
+                if (position.z >= getWorld().getEnvironment().getGroundLevel(
+                        position)
+                        && velocity.z + acceleration.z * dt >= 0.0) {
+                    // On ground
+                    acceleration.x = -velocity.x / dt;
+                    acceleration.y = -velocity.y / dt;
+                    acceleration.z = -velocity.z / dt;
+                    position.z = getWorld().getEnvironment().getGroundLevel(
+                            position);
+                    // rotationRate.set(0.0, 0.0, 0.0);
+                }
+                Vector3d dVel = new Vector3d(acceleration);
+                dVel.scale(dt);
+                velocity.add(dVel);
+                // Rotation
+                if (rotationRate.length() > 0.0) {
+                    Matrix3d r = new Matrix3d();
+                    Vector3d rotationAxis = new Vector3d(rotationRate);
+                    rotationAxis.normalize();
+                    r.set(new AxisAngle4d(rotationAxis, rotationRate.length() * dt));
+                    rotation.mulNormalize(r);
+                }
+                // use an adaptive dt to integrate omega
+                Vector3d exTorque = getTorque();
+                int wInc = (int) (1 + 500 * rotationRate.length());
 //            System.out.print("wInc: " + wInc + ": ");
-            for (int i = 0; i < wInc; i++)
-                omegaUpdate(dt / wInc, exTorque);
+                for (int i = 0; i < wInc; i++) {
+                    omegaUpdate(dt / wInc, exTorque);
+                }
+            }
         }
         lastTime = t;
     }

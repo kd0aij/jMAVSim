@@ -45,6 +45,7 @@ import java.awt.event.MouseEvent;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import static java.lang.System.out;
+import java.util.Date;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -119,18 +120,20 @@ class CameraView {
 public class Visualizer {
 
     static private Logger logger;
+    static boolean append = true;
 
     static {
         logger = Logger.getLogger("Visualizer");
         Handler[] handler = logger.getParent().getHandlers();
         handler[0].setFormatter(new BriefFormatter());
         try {
-            String logFileName = FileUtils.getLogFileName("log", "visualizer");
+            String logFileName = FileUtils.getLogFileName("log", "visualizer", append);
             StreamHandler logFileHandler = new StreamHandler(
-                    new FileOutputStream(logFileName), new BriefFormatter());
+                    new FileOutputStream(logFileName, append), new BriefFormatter());
             out.println("logfile: " + logFileName);
             logFileHandler.setFormatter(new BriefFormatter());
             logger.addHandler(logFileHandler);
+            logger.log(Level.INFO, "\nVisualizer starting: ".concat((new Date()).toString()));
         } catch (SecurityException | IOException e) {
             out.println("error creating logger");
             System.exit(0);
@@ -217,7 +220,7 @@ public class Visualizer {
         view.setProjectionPolicy(View.PERSPECTIVE_PROJECTION);
         dbgCamera.getView().setBackClipDistance(100000.0);
         // set maximum frame rate
-        dbgCamera.getView().setMinimumFrameCycleTime(10);
+        dbgCamera.getView().setMinimumFrameCycleTime(2);
 
         // set up mouse controlled flight
         Transform3D mt3d = new Transform3D();
@@ -231,7 +234,7 @@ public class Visualizer {
         view.setProjectionPolicy(View.PERSPECTIVE_PROJECTION);
         mainCamera.getView().setBackClipDistance(100000.0);
         // set maximum frame rate
-        mainCamera.getView().setMinimumFrameCycleTime(10);
+        mainCamera.getView().setMinimumFrameCycleTime(2);
 
         locale.addBranchGraph(dbgCamera.getRootBG());
         locale.addBranchGraph(mainCamera.getRootBG());
@@ -478,7 +481,6 @@ public class Visualizer {
                 viewerTransform.setTranslation(dbgViewerPos);
                 break;
         }
-        viewerTransform.normalize();
         dbgCamera.getViewPlatformTransformGroup().setTransform(
                 viewerTransform);
     }
@@ -487,8 +489,14 @@ public class Visualizer {
 
         protected Visualizer vis;
         protected WakeupCondition m_WakeupCondition = null;
-        private int frameNum;
-        private long startTime;
+        private int frameCount;         // number of elapsed frames
+        private long baseTime;
+        private long start_nt;         // milliseconds
+        private long last_nt;           // nanoseconds
+        private double avg_fps = 0;     // Hz
+        private double avg_interval;    // nanoseconds
+        private long min_interval = Long.MAX_VALUE; // nanoseconds
+        private long max_interval = 0;      // nanoseconds
 
         public ViewPlatformBehavior(Visualizer vis) {
             this.vis = vis;
@@ -504,6 +512,9 @@ public class Visualizer {
         public void initialize() {
             //apply the initial WakeupCriterion
             wakeupOn(m_WakeupCondition);
+            baseTime = System.currentTimeMillis();
+            start_nt = System.nanoTime();
+            frameCount = 0;
         }
 
         public void processStimulus(java.util.Enumeration criteria) {
@@ -513,17 +524,34 @@ public class Visualizer {
 
                 //every N frames, reposition the viewplatform
                 if (wakeUp instanceof WakeupOnElapsedFrames) {
-                    frameNum++;
+                    frameCount++;
                     long t = System.currentTimeMillis();
-                    long et = t - startTime;
-                    world.update(t);
-                    update();
-                    sim.sendMavLinkMessages_ap();
-                    if (et >= 1000) {
-                        double fps = 1000 * frameNum / et;
-                        logger.log(Level.INFO, "fps: " + fps);
-                        startTime = t;
-                        frameNum = 0;
+                    long nt = System.nanoTime();
+                    long ent = nt - start_nt;
+                    long dnt = nt - last_nt;
+                    min_interval = Math.min(dnt, min_interval);
+                    max_interval = Math.max(dnt, max_interval);
+                    last_nt = nt;
+
+                    try {
+                        world.update(t);
+                        update();
+                    } catch (javax.media.j3d.BadTransformException e) {
+                        logger.log(Level.SEVERE, e.getMessage());
+                        logger.log(Level.SEVERE, sim.vehicle.transform.toString());
+                        e.printStackTrace();
+                    }
+                    if (ent >= 10e9) {
+                        avg_interval = ent / frameCount;
+                        avg_fps = 1e9 / avg_interval; // Hz
+                        logger.log(Level.INFO,
+                                String.format("%10.3f, avg_fps: %5.1f, dt(msec) avg: %5.1f, min: %5.1f, max: %5.1f",
+                                        1e-3 * (t - baseTime), avg_fps, 1e-6 * avg_interval,
+                                        1e-6 * min_interval, 1e-6 * max_interval));
+                        start_nt = nt;
+                        frameCount = 0;
+                        min_interval = Long.MAX_VALUE;
+                        max_interval = 0;
                     }
                 }
             }

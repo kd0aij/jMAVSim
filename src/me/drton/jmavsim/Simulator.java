@@ -9,19 +9,17 @@ import static java.lang.System.out;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.logging.StreamHandler;
-
 import javax.vecmath.Matrix3d;
 import javax.vecmath.Vector3d;
-
 import me.drton.jmavsim.vehicle.AbstractMulticopter;
 import me.drton.jmavsim.vehicle.AbstractVehicle;
 import me.drton.jmavsim.vehicle.Quadcopter;
-
 import org.mavlink.messages.MAVLinkMessage;
 import org.mavlink.messages.common.msg_global_position_int;
 import org.mavlink.messages.common.msg_heartbeat;
@@ -36,18 +34,20 @@ import org.mavlink.messages.common.msg_statustext;
 public class Simulator extends Thread {
 
     static private Logger logger;
+    static boolean append = true;
 
     static {
         logger = Logger.getLogger("Simulator");
         Handler[] handler = logger.getParent().getHandlers();
         handler[0].setFormatter(new BriefFormatter());
         try {
-            String logFileName = FileUtils.getLogFileName("log", "simulator");
+            String logFileName = FileUtils.getLogFileName("log", "simulator", append);
             StreamHandler logFileHandler = new StreamHandler(
-                    new FileOutputStream(logFileName), new BriefFormatter());
+                    new FileOutputStream(logFileName, append), new BriefFormatter());
             out.println("logfile: " + logFileName);
             logFileHandler.setFormatter(new BriefFormatter());
             logger.addHandler(logFileHandler);
+            logger.log(Level.INFO, "\nSimulator starting: ".concat((new Date()).toString()));
         } catch (SecurityException | IOException e) {
             out.println("error creating logger");
             System.exit(0);
@@ -65,13 +65,13 @@ public class Simulator extends Thread {
     private boolean inited = false;
     private int sysId = -1;
     private int componentId = -1;
-    private int sleepInterval = 10;
-    private int visualizerSleepInterval = 20;
+    private final int sleepInterval = 5;
+    private final int visualizerSleepInterval = 20;
     private long nextRun = 0;
-    private long msgIntervalGPS = 200;
+    private final long msgIntervalGPS = 200;
     private long msgLastGPS = 0;
     private long initTime = 0;
-    private long initDelay = 1000;
+    private final long initDelay = 1000;
     protected Target target;
     protected boolean fixedPilot = false;
 
@@ -106,7 +106,7 @@ public class Simulator extends Thread {
         world.addObject(v);
         target = new Target(world, 0.3);
         target.initGPS(55.753395, 37.625427);
-        target.getPosition().set(5, 0, -5);
+        target.getPosition().set(0, 0.1, -5);
         world.addObject(target);
 
         // Create visualizer
@@ -230,7 +230,7 @@ public class Simulator extends Thread {
                     msg_gps.fix_type = 3;
                     msg_gps.satellites_visible = 10;
                     apMavlinkPort.sendMessage(msg_gps);
-                    
+
                     msg_global_position_int msg_target = new msg_global_position_int(2,
                             componentId);
                     GPSPosition target_pos = target.getGPS();
@@ -249,25 +249,7 @@ public class Simulator extends Thread {
         }
     }
 
-    static long lastUpdate = 0;
-    final long minSleep = sleepInterval / 4;
-
     public void run() {
-
-//        // realtime display... this should probably be simulated time, not realtime
-//        new Thread(new Runnable() {
-//            @Override
-//            public void run() {
-//                while (true) {
-//                    visualizer.update();
-//                    try {
-//                        Thread.sleep(visualizerSleepInterval);
-//                    } catch (InterruptedException e) {
-//                        break;
-//                    }
-//                }
-//            }
-//        }).start();
         // realtime handling of messages from autopilot
         new Thread(new Runnable() {
             @Override
@@ -308,33 +290,24 @@ public class Simulator extends Thread {
             try {
                 // run a simulation step
                 long t = System.currentTimeMillis();
-                long dt = t - lastUpdate;
-                lastUpdate = t;
-                if (dt > sleepInterval + 1) {
-                    logger.log(Level.INFO, "dt: " + dt);
-                }
-                // this call can block due to syncing with renderer
-//                world.update(t);
-//                visualizer.update();
+
                 // send HIL sensor and GPS data to PX4
-//                if (apMavlinkPort.isOpened() && inited) {
-//                    sendMavLinkMessages_ap();
-//                }
-                dt = System.currentTimeMillis() - t;
-                if (dt > 10) {
-                    logger.log(Level.INFO, "update dt: " + dt);
+                if (apMavlinkPort.isOpened() && inited) {
+                    sendMavLinkMessages_ap();
                 }
 
                 long timeLeft = Math.max(sleepInterval / 4,
                         nextRun - System.currentTimeMillis());
                 nextRun = Math.max(t + sleepInterval / 4, nextRun
                         + sleepInterval);
-                if (timeLeft == minSleep) {
+                
+                final long minSleep = sleepInterval / 4;
+                if (timeLeft <= minSleep) {
                     out.format("sync slip: nextRun: %d, timeLeft: %d\n", nextRun, timeLeft);
                 }
 
                 Thread.sleep(timeLeft);
-            } catch (Exception e) {
+            } catch (InterruptedException e) {
                 e.printStackTrace();
             }
         }

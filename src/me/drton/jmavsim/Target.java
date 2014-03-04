@@ -23,6 +23,7 @@ import javax.vecmath.Vector4d;
 
 import com.sun.j3d.utils.geometry.Cylinder;
 import com.sun.j3d.utils.geometry.Sphere;
+import java.util.Date;
 
 /**
  * User: ton Date: 01.02.14 Time: 22:12
@@ -30,18 +31,20 @@ import com.sun.j3d.utils.geometry.Sphere;
 public class Target extends VisualObject {
 
     static private Logger logger;
+    static boolean append = true;
 
     static {
         logger = Logger.getLogger("Target");
         Handler[] handler = logger.getParent().getHandlers();
         handler[0].setFormatter(new BriefFormatter());
         try {
-            String logFileName = FileUtils.getLogFileName("log", "target");
+            String logFileName = FileUtils.getLogFileName("log", "target", append);
             StreamHandler logFileHandler = new StreamHandler(
-                    new FileOutputStream(logFileName), new BriefFormatter());
+                    new FileOutputStream(logFileName, append), new BriefFormatter());
             out.println("logfile: " + logFileName);
             logFileHandler.setFormatter(new BriefFormatter());
             logger.addHandler(logFileHandler);
+            logger.log(Level.INFO, "\nTarget starting: ".concat((new Date()).toString()));
         } catch (SecurityException | IOException e) {
             out.println("error creating logger");
             System.exit(0);
@@ -199,9 +202,8 @@ public class Target extends VisualObject {
 //        baseTG.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
 //        transformGroup.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
 //        transformGroup.setCapability(javax.media.j3d.Node.ENABLE_PICK_REPORTING);
-
         transformGroup.addChild(baseTG);
-   }
+    }
 
     public void initGPS(double lat, double lon) {
         gpsProjector.init(lat, lon);

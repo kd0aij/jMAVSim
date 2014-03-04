@@ -5,8 +5,7 @@ import java.io.FileFilter;
 
 class FileUtils {
 
-    public static String getLogFileName(final String directory, final String prefix) {
-        // autosequence logfile names: format target_nnnn.log
+    public static String getLogFileName(final String directory, final String prefix, boolean append) {
         File dir = new File(directory);
         FileFilter filter = new FileFilter() {
             public boolean accept(File file) {
@@ -20,17 +19,26 @@ class FileUtils {
                 return status;
             }
         };
+        // autosequence logfile names: format target_nnnn.log
         File[] logFiles = dir.listFiles(filter);
         int logSeq = 0;
+        String highestFile = null;
         for (File file : logFiles) {
             String fName = file.getName();
             String[] parts = fName.split("_|\\.");
             if (parts.length == 3) {
                 int seq = Integer.decode(parts[1]);
-                if (seq >= logSeq)
+                if (seq >= logSeq) {
                     logSeq = seq + 1;
+                    highestFile = fName;
+                }
             }
         }
-        return new String(directory + File.separatorChar + prefix + "_" + logSeq + ".log");
+        if (append && (highestFile != null)) {
+            return directory + File.separatorChar + highestFile;
+        } else {
+            return directory + File.separatorChar + prefix + "_" + logSeq + ".log";
+        }
     }
+
 }
