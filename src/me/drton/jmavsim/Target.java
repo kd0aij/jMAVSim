@@ -5,7 +5,6 @@ import static java.lang.System.out;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.security.acl.Group;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Handler;
@@ -29,7 +28,9 @@ import com.sun.j3d.utils.geometry.Sphere;
  * User: ton Date: 01.02.14 Time: 22:12
  */
 public class Target extends VisualObject {
+
     static private Logger logger;
+
     static {
         logger = Logger.getLogger("Target");
         Handler[] handler = logger.getParent().getHandlers();
@@ -41,10 +42,9 @@ public class Target extends VisualObject {
             out.println("logfile: " + logFileName);
             logFileHandler.setFormatter(new BriefFormatter());
             logger.addHandler(logFileHandler);
-        } catch (SecurityException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (SecurityException | IOException e) {
+            out.println("error creating logger");
+            System.exit(0);
         }
     }
     protected long startTime = -1;
@@ -139,8 +139,9 @@ public class Target extends VisualObject {
             pointMassT3D.setTranslation(massC);
             TransformGroup pointMassTG = new TransformGroup(pointMassT3D);
             float dSize = (float) (2 * e.w * size / getMass());
-            if (e.w == 0)
+            if (e.w == 0) {
                 dSize = (float) (size / 4);
+            }
             Sphere massShape = new Sphere(dSize);
             massShape.getAppearance()
                     .setMaterial(
@@ -148,16 +149,16 @@ public class Target extends VisualObject {
                                     G3f.red, 64.0f));
             pointMassTG.addChild(massShape);
             baseTG.addChild(pointMassTG);
-            
+
             // connect each point mass to center of mass
             // line from c_M to point mass is massC
             Vector3d dir = new Vector3d(massC);
             dir.normalize();
             double angle = Math.acos(dir.y);
             Vector3d axis = new Vector3d();
-            axis.cross(new Vector3d(0,1,0), massC);
+            axis.cross(new Vector3d(0, 1, 0), massC);
             AxisAngle4d cAA = new AxisAngle4d(axis, angle);
-            Vector3d trans = new Vector3d(0, massC.length()/2, 0);
+            Vector3d trans = new Vector3d(0, massC.length() / 2, 0);
             Transform3D cT3D = new Transform3D();
             cT3D.set(cAA);
             cT3D.transform(trans);
@@ -194,12 +195,13 @@ public class Target extends VisualObject {
         impArrowTG.addChild(impArrow);
         baseTG.addChild(impArrowTG);
 
-        impArrowTG.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
-        baseTG.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
-        transformGroup.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
+//        impArrowTG.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
+//        baseTG.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
+//        transformGroup.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
+//        transformGroup.setCapability(javax.media.j3d.Node.ENABLE_PICK_REPORTING);
 
         transformGroup.addChild(baseTG);
-    }
+   }
 
     public void initGPS(double lat, double lon) {
         gpsProjector.init(lat, lon);
@@ -209,8 +211,9 @@ public class Target extends VisualObject {
 
     @Override
     protected Vector3d getForce() {
-        if (startTime < 0)
+        if (startTime < 0) {
             startTime = lastTime;
+        }
         Vector3d f = new Vector3d(velocity);
         f.scale(-f.length() * dragMove);
         Vector3d mg = new Vector3d(getWorld().getEnvironment().getG());
@@ -246,62 +249,62 @@ public class Target extends VisualObject {
         wDamping.setZ(-zdamping * rotationRate.z);
         torque.set(wDamping);
         switch (tState) {
-        case 0: // spin up
-            damping = 0;
-            zdamping = 0;
-            Vector3d delT = new Vector3d(0.0, 0.0, 0.02);
-            torque.add(delT);
-            if (rotationRate.length() >= 2) {
-                gtReport.report_now(gyroAcc, "gyroAcc");
-                out.println("^^^ finished spin-up");
-                tState = 4;
-            }
-            break;
-        case 1:
-            damping = .01;
-            zdamping = .01;
-            if (rotationRate.length() < 1e-2) {
-                gtReport.report_now(gyroAcc, "gyroAcc");
-                out.println("^^^ finished spin-down");
-                tState = 4;
-                // damping = 0.002;
+            case 0: // spin up
+                damping = 0;
                 zdamping = 0;
-                // rotation.setIdentity();
-            }
-            break;
-        case 2:
-            // apply an impulse
-            Vector3d impulse = new Vector3d(impT);
-            Matrix3d earth2body = new Matrix3d(rotation);
-            earth2body.transpose();
-            earth2body.transform(impulse);
-            impArrowT3D.set(earth2body);
-            impArrowTG.setTransform(impArrowT3D);
-            impArrowT3D.setScale(1);
-            // impulse.scale(.2);
-            torque.add(impulse);
-            // impT.scale(-1);
-            // damping = .002;
-            out.println("Y torque impulse\n");
-            lastImpulse = clockTime;
-            tState = 3;
-            break;
-        case 3:
-            delT = new Vector3d(0.0, 0.0, 0.0);
-            torque.add(delT);
-            // impArrowT3D.setScale(0.1);
-            // impArrowTG.setTransform(impArrowT3D);
-
-            // delay then back to state 2
-            if (clockTime - lastImpulse >= 5000) {
+                Vector3d delT = new Vector3d(0.0, 0.0, 0.02);
+                torque.add(delT);
+                if (rotationRate.length() >= 2) {
+                    gtReport.report_now(gyroAcc, "gyroAcc");
+                    logger.log(Level.INFO, "^^^ finished spin-up");
+                    tState = 4;
+                }
+                break;
+            case 1:
+                damping = .01;
+                zdamping = .01;
+                if (rotationRate.length() < 1e-2) {
+                    gtReport.report_now(gyroAcc, "gyroAcc");
+                    logger.log(Level.INFO, "^^^ finished spin-down");
+                    tState = 4;
+                    // damping = 0.002;
+                    zdamping = 0;
+                    // rotation.setIdentity();
+                }
+                break;
+            case 2:
+                // apply an impulse
+                Vector3d impulse = new Vector3d(impT);
+                Matrix3d earth2body = new Matrix3d(rotation);
+                earth2body.transpose();
+                earth2body.transform(impulse);
+                impArrowT3D.set(earth2body);
+                impArrowTG.setTransform(impArrowT3D);
+                impArrowT3D.setScale(1);
+                // impulse.scale(.2);
+                torque.add(impulse);
+                // impT.scale(-1);
+                // damping = .002;
+                logger.log(Level.INFO, "Y torque impulse\n");
                 lastImpulse = clockTime;
-                tState = 2;
-            }
-            break;
-        case 4:
-            delT = new Vector3d(0.0, 0.0, 0.0);
-            torque.add(delT);
-            break;
+                tState = 3;
+                break;
+            case 3:
+                delT = new Vector3d(0.0, 0.0, 0.0);
+                torque.add(delT);
+            // impArrowT3D.setScale(0.1);
+                // impArrowTG.setTransform(impArrowT3D);
+
+                // delay then back to state 2
+                if (clockTime - lastImpulse >= 5000) {
+                    lastImpulse = clockTime;
+                    tState = 2;
+                }
+                break;
+            case 4:
+                delT = new Vector3d(0.0, 0.0, 0.0);
+                torque.add(delT);
+                break;
         }
         gtReport.report_periodically(gyroAcc, "gyroAcc");
         return torque;
@@ -323,6 +326,7 @@ public class Target extends VisualObject {
     }
 
     class Report {
+
         long lastReport = 0;
         long rptInterval = 100;
         long baseTime;
@@ -344,18 +348,18 @@ public class Target extends VisualObject {
             logger.log(
                     Level.INFO,
                     "{0}{1}",
-                    new Object[] {
-                            String.format(
-                                    "%8.3f: wMag: %7.3f, omega: (%7.3f, %7.3f, %7.3f),  ",
-                                    (lastTime - baseTime) / 1000.0,
-                                    rotationRate.length(), rotationRate.x,
-                                    rotationRate.y, rotationRate.z),
-                            String.format(
-                                    "torque: (%7.3f, %7.3f, %7.3f), %s: (%7.3f, %7.3f, %7.3f), "
-                                            + "pos: (%7.3f, %7.3f, %7.3f)",
-                                    torque.x, torque.y, torque.z, label, v.x,
-                                    v.y, v.z, position.x, position.y,
-                                    position.z) });
+                    new Object[]{
+                        String.format(
+                                "%8.3f: wMag: %7.3f, omega: (%7.3f, %7.3f, %7.3f),  ",
+                                (lastTime - baseTime) / 1000.0,
+                                rotationRate.length(), rotationRate.x,
+                                rotationRate.y, rotationRate.z),
+                        String.format(
+                                "torque: (%7.3f, %7.3f, %7.3f), %s: (%7.3f, %7.3f, %7.3f), "
+                                + "pos: (%7.3f, %7.3f, %7.3f)",
+                                torque.x, torque.y, torque.z, label, v.x,
+                                v.y, v.z, position.x, position.y,
+                                position.z)});
         }
     }
 }

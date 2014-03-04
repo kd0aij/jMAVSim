@@ -5,7 +5,7 @@ import java.io.FileFilter;
 
 class FileUtils {
 
-    public static String getLogFileName(String directory, String prefix) {
+    public static String getLogFileName(final String directory, final String prefix) {
         // autosequence logfile names: format target_nnnn.log
         File dir = new File(directory);
         FileFilter filter = new FileFilter() {
@@ -13,7 +13,7 @@ class FileUtils {
                 boolean status = false;
                 if (file.isFile() && !file.isDirectory()) {
                     String filename = file.getName();
-                    if (filename.endsWith(".log")) {
+                    if (filename.endsWith(".log") && filename.startsWith(prefix)) {
                         status = true;
                     }
                 }

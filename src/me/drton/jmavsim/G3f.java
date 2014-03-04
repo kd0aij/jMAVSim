@@ -1,9 +1,6 @@
 package me.drton.jmavsim;
 
-import java.awt.Component;
-import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.event.ComponentEvent;
 import java.util.ArrayList;
 import java.util.logging.Handler;
 import java.util.logging.Logger;
@@ -12,7 +9,6 @@ import javax.media.j3d.AmbientLight;
 import javax.media.j3d.Appearance;
 import javax.media.j3d.BoundingSphere;
 import javax.media.j3d.BranchGroup;
-import javax.media.j3d.Canvas3D;
 import javax.media.j3d.ColoringAttributes;
 import javax.media.j3d.Font3D;
 import javax.media.j3d.FontExtrusion;
@@ -27,7 +23,6 @@ import javax.media.j3d.Text3D;
 import javax.media.j3d.Transform3D;
 import javax.media.j3d.TransformGroup;
 import javax.media.j3d.TransparencyAttributes;
-import javax.swing.JFrame;
 import javax.vecmath.AxisAngle4d;
 import javax.vecmath.Color3f;
 import javax.vecmath.Point3d;
@@ -43,9 +38,12 @@ import com.sun.j3d.utils.geometry.GeometryInfo;
 import com.sun.j3d.utils.geometry.NormalGenerator;
 import com.sun.j3d.utils.geometry.Sphere;
 import com.sun.j3d.utils.geometry.Stripifier;
+import javax.vecmath.Matrix3d;
 
 public class G3f {
+
     static private Logger logger;
+
     static {
         logger = Logger.getLogger("graphicsUtils");
         Handler[] handler = logger.getParent().getHandlers();
@@ -483,7 +481,7 @@ public class G3f {
 
         MouseZoom mouseZ = new MouseZoom(moveTGroup);
         // *** fix this ***
-        mouseZ.setFactor(-scale * 12);
+        mouseZ.setFactor(-scale);
         moveTGroup.addChild(mouseZ);
         mouseZ.setSchedulingBounds(bounds);
         return moveTGroup;
@@ -521,7 +519,6 @@ public class G3f {
         // dl2.setInfluencingBounds(amBound);
         // dl.setInfluencingBounds(amBound);
         // lightingTg.addChild(dl2);
-
         return lightingTg;
     }
 
@@ -585,8 +582,9 @@ public class G3f {
         look.setPointAttributes(pa);
 
         Shape3D pointArray = new Shape3D(points, look);
-        if (transparency > 0)
+        if (transparency > 0) {
             makeTransparent(pointArray, transparency);
+        }
 
         Transform3D t3d = new Transform3D();
         t3d.setTranslation(new Vector3f(center));
@@ -619,12 +617,12 @@ public class G3f {
     final static int CRCb = 17;
     final static int CLC = 18;
     final static int CLCb = 19;
-    final static float[][] offset = new float[][] { { -1, -1, -1 },
-            { -1, -1, 0 }, { -1, -1, 1 }, { 1, -1, -1 }, { 1, -1, 0 },
-            { 1, -1, 1 }, { -1, 1, -1 }, { -1, 1, 0 }, { -1, 1, 1 },
-            { 1, 1, -1 }, { 1, 1, 0 }, { 1, 1, 1 }, { 0, -1, -1 },
-            { 0, -1, 1 }, { 0, 1, -1 }, { 0, 1, 1 }, { -1, 0, -1 },
-            { -1, 0, 1 }, { 1, 0, -1 }, { 1, 0, 1 } };
+    final static float[][] offset = new float[][]{{-1, -1, -1},
+    {-1, -1, 0}, {-1, -1, 1}, {1, -1, -1}, {1, -1, 0},
+    {1, -1, 1}, {-1, 1, -1}, {-1, 1, 0}, {-1, 1, 1},
+    {1, 1, -1}, {1, 1, 0}, {1, 1, 1}, {0, -1, -1},
+    {0, -1, 1}, {0, 1, -1}, {0, 1, 1}, {-1, 0, -1},
+    {-1, 0, 1}, {1, 0, -1}, {1, 0, 1}};
 
     static void addVertex(Point3f p, int type, float xSize, float ySize,
             float zSize, ArrayList bQuads) {
@@ -715,4 +713,45 @@ public class G3f {
         bg1.setPickable(true);
         return bg1;
     }
+
+    /**
+     * **********************************************************************
+     * Willson's solve_RPY converted to Java: * This routine solves for the
+     * roll, pitch and yaw angles (in radians) * for a given orthonormal
+     * rotation matrix (from Richard P. Paul, * Robot Manipulators: Mathematics,
+     * Programming and Control, p70). * Note 1, should the rotation matrix not
+     * be orthonormal these will not * be the "best fit" roll, pitch and yaw
+     * angles. * Note 2, there are actually two possible solutions for the
+     * matrix. * The second solution can be found by adding 180 degrees to Rz
+     * before * Ry and Rx are calculated. *
+     * **********************************************************************
+     */
+    public static double[] getRPYangles(Matrix3d R) {
+        double Rz = Math.atan2(R.m10, R.m00);
+
+        double sg = Math.sin(Rz);
+        double cg = Math.cos(Rz);
+
+        double Ry = Math.atan2(-R.m20, R.m00 * cg + R.m10 * sg);
+        double Rx = Math.atan2(R.m02 * sg - R.m12 * cg, R.m11 * cg - R.m01 * sg);
+
+        // order is Rx, Ry, Rz
+        return new double[]{
+            Rx, Ry, Rz};
+    }
+
+    // return a 3x3 rotation matrix representing an XYZ fixed angle transform
+    public static Matrix3d setXYZ(double g, double b, double a) {
+        Matrix3d Rx = new Matrix3d();
+        Matrix3d Ry = new Matrix3d();
+        Matrix3d Rz = new Matrix3d();
+        Rx.rotX(g);
+        Ry.rotY(b);
+        Rz.rotZ(a);
+
+        Rx.mul(Rx, Ry);
+        Rx.mul(Rx, Rz);
+        return Rx;
+    }
+
 }

@@ -1,18 +1,20 @@
 package me.drton.jmavsim;
 
-import static java.lang.System.out;
-
 import java.awt.HeadlessException;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import static java.lang.System.out;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.logging.StreamHandler;
 
-import javax.media.j3d.Transform3D;
-import javax.media.j3d.TransformGroup;
 import javax.vecmath.Matrix3d;
 import javax.vecmath.Vector3d;
 
@@ -32,19 +34,39 @@ import org.mavlink.messages.common.msg_statustext;
  * User: ton Date: 26.11.13 Time: 12:33
  */
 public class Simulator extends Thread {
+
+    static private Logger logger;
+
+    static {
+        logger = Logger.getLogger("Simulator");
+        Handler[] handler = logger.getParent().getHandlers();
+        handler[0].setFormatter(new BriefFormatter());
+        try {
+            String logFileName = FileUtils.getLogFileName("log", "simulator");
+            StreamHandler logFileHandler = new StreamHandler(
+                    new FileOutputStream(logFileName), new BriefFormatter());
+            out.println("logfile: " + logFileName);
+            logFileHandler.setFormatter(new BriefFormatter());
+            logger.addHandler(logFileHandler);
+        } catch (SecurityException | IOException e) {
+            out.println("error creating logger");
+            System.exit(0);
+        }
+    }
+
     protected static ControlFrame cPanel = null;
     private static String portName;
     private World world;
     protected AbstractVehicle vehicle;
     Visualizer visualizer;
-    private MAVLinkPort mavlinkPort;
-    private MAVLinkPort mavlinkPort1;
+    private MAVLinkPort apMavlinkPort;
+    private MAVLinkPort gcsMavlinkPort;
     private boolean gotHeartBeat = false;
     private boolean inited = false;
     private int sysId = -1;
     private int componentId = -1;
     private int sleepInterval = 10;
-    private int visualizerSleepInterval = 1;
+    private int visualizerSleepInterval = 20;
     private long nextRun = 0;
     private long msgIntervalGPS = 200;
     private long msgLastGPS = 0;
@@ -86,9 +108,9 @@ public class Simulator extends Thread {
         target.initGPS(55.753395, 37.625427);
         target.getPosition().set(5, 0, -5);
         world.addObject(target);
-        
+
         // Create visualizer
-        visualizer = new Visualizer(world);
+        visualizer = new Visualizer(world, this);
 
         // If ViewerPosition is not set to an object, it is fixed
         // In that case, autorotate should default to on and the ViewerTarget
@@ -101,16 +123,22 @@ public class Simulator extends Thread {
             visualizer.setViewerTarget(target);
             visualizer.setViewerPosition(vehicle);
         }
+        visualizer.setDbgViewerPosition(vehicle);
 
         // Create and open port
         gotHeartBeat = false;
         inited = false;
-        SerialMAVLinkPort serialMAVLinkPort = new SerialMAVLinkPort();
-        serialMAVLinkPort.open(portName, 230400, 8, 1, 0);
-        UDPMavLinkPort udpMavLinkPort = new UDPMavLinkPort();
-        udpMavLinkPort.open(new InetSocketAddress(14555));
-        mavlinkPort = serialMAVLinkPort;
-        mavlinkPort1 = udpMavLinkPort;
+        try {
+            SerialMAVLinkPort serialMAVLinkPort = new SerialMAVLinkPort();
+            serialMAVLinkPort.open(portName, 230400, 8, 1, 0);
+            UDPMavLinkPort udpMavLinkPort = new UDPMavLinkPort();
+            udpMavLinkPort.open(new InetSocketAddress(14555));
+            apMavlinkPort = serialMAVLinkPort;
+            gcsMavlinkPort = udpMavLinkPort;
+        } catch (IOException e) {
+            logger.log(Level.SEVERE, "open error: ".concat(e.toString()));
+            System.exit(0);
+        }
         // run();
         // Close ports
         // mavlinkPort.close();
@@ -125,7 +153,7 @@ public class Simulator extends Thread {
         org.mavlink.messages.common.msg_set_mode msg = new org.mavlink.messages.common.msg_set_mode(
                 sysId, componentId);
         msg.base_mode = 32; // HIL, disarmed
-        mavlinkPort.sendMessage(msg);
+        apMavlinkPort.sendMessage(msg);
     }
 
     private void handleMavLinkMessage(MAVLinkMessage msg) throws IOException {
@@ -148,134 +176,162 @@ public class Simulator extends Thread {
                 initTime = t + initDelay;
             }
             if (!inited && t > initTime) {
-                System.out.println("Init MAVLink");
+                logger.log(Level.INFO, "Init MAVLink");
                 initMavLink();
                 inited = true;
             }
             if ((msg_heartbeat.base_mode & 128) == 0) {
-                vehicle.setControl(Collections.<Double> emptyList());
+                vehicle.setControl(Collections.<Double>emptyList());
             }
         } else if (msg instanceof msg_statustext) {
-            System.out.println("MSG: " + ((msg_statustext) msg).getText());
+            logger.log(Level.INFO, "MSG: " + ((msg_statustext) msg).getText());
         }
     }
 
-    private void sendMavLinkMessages() throws IOException {
-        long t = System.currentTimeMillis();
-        long tu = t * 1000;
-        Sensors sensors = vehicle.getSensors();
-        // Sensors
-        msg_hil_sensor msg_sensor = new msg_hil_sensor(sysId, componentId);
-        msg_sensor.time_usec = tu;
-        Vector3d acc = sensors.getAcc();
-        msg_sensor.xacc = (float) acc.x;
-        msg_sensor.yacc = (float) acc.y;
-        msg_sensor.zacc = (float) acc.z;
-        Vector3d gyro = sensors.getGyro();
-        msg_sensor.xgyro = (float) gyro.x;
-        msg_sensor.ygyro = (float) gyro.y;
-        msg_sensor.zgyro = (float) gyro.z;
-        Vector3d mag = sensors.getMag();
-        msg_sensor.xmag = (float) mag.x;
-        msg_sensor.ymag = (float) mag.y;
-        msg_sensor.zmag = (float) mag.z;
-        msg_sensor.pressure_alt = (float) sensors.getPressureAlt();
-        mavlinkPort.sendMessage(msg_sensor);
-        // GPS
-        if (t - msgLastGPS > msgIntervalGPS) {
-            msgLastGPS = t;
-            msg_hil_gps msg_gps = new msg_hil_gps(sysId, componentId);
-            msg_gps.time_usec = tu;
-            GPSPosition gps = sensors.getGPS();
-            msg_gps.lat = (long) (gps.lat * 1e7);
-            msg_gps.lon = (long) (gps.lon * 1e7);
-            msg_gps.alt = (long) (gps.alt * 1e3);
-            msg_gps.vn = (int) (gps.vn * 100);
-            msg_gps.ve = (int) (gps.ve * 100);
-            msg_gps.vd = (int) (gps.vd * 100);
-            msg_gps.eph = (int) (gps.eph * 100);
-            msg_gps.epv = (int) (gps.epv * 100);
-            msg_gps.vel = (int) (gps.getSpeed() * 100);
-            msg_gps.cog = (int) (gps.getCog() / Math.PI * 18000.0);
-            msg_gps.fix_type = 3;
-            msg_gps.satellites_visible = 10;
-            mavlinkPort.sendMessage(msg_gps);
-
-            msg_global_position_int msg_target = new msg_global_position_int(2,
-                    componentId);
-            GPSPosition target_pos = target.getGPS();
-            msg_target.time_boot_ms = tu;
-            msg_target.lat = (long) (target_pos.lat * 1e7);
-            msg_target.lon = (long) (target_pos.lon * 1e7);
-            msg_target.alt = (long) (target_pos.alt * 1e3);
-            msg_target.vx = (int) (target_pos.vn * 100);
-            msg_target.vy = (int) (target_pos.ve * 100);
-            msg_target.vz = (int) (target_pos.vd * 100);
-            mavlinkPort.sendMessage(msg_target);
+    protected void sendMavLinkMessages_ap() {
+        if (apMavlinkPort.isOpened() && inited) {
+            try {
+                long t = System.currentTimeMillis();
+                long tu = t * 1000;
+                Sensors sensors = vehicle.getSensors();
+                // Sensors
+                msg_hil_sensor msg_sensor = new msg_hil_sensor(sysId, componentId);
+                msg_sensor.time_usec = tu;
+                Vector3d acc = sensors.getAcc();
+                msg_sensor.xacc = (float) acc.x;
+                msg_sensor.yacc = (float) acc.y;
+                msg_sensor.zacc = (float) acc.z;
+                Vector3d gyro = sensors.getGyro();
+                msg_sensor.xgyro = (float) gyro.x;
+                msg_sensor.ygyro = (float) gyro.y;
+                msg_sensor.zgyro = (float) gyro.z;
+                Vector3d mag = sensors.getMag();
+                msg_sensor.xmag = (float) mag.x;
+                msg_sensor.ymag = (float) mag.y;
+                msg_sensor.zmag = (float) mag.z;
+                msg_sensor.pressure_alt = (float) sensors.getPressureAlt();
+                apMavlinkPort.sendMessage(msg_sensor);
+                // GPS
+                if (t - msgLastGPS > msgIntervalGPS) {
+                    msgLastGPS = t;
+                    msg_hil_gps msg_gps = new msg_hil_gps(sysId, componentId);
+                    msg_gps.time_usec = tu;
+                    GPSPosition gps = sensors.getGPS();
+                    msg_gps.lat = (long) (gps.lat * 1e7);
+                    msg_gps.lon = (long) (gps.lon * 1e7);
+                    msg_gps.alt = (long) (gps.alt * 1e3);
+                    msg_gps.vn = (int) (gps.vn * 100);
+                    msg_gps.ve = (int) (gps.ve * 100);
+                    msg_gps.vd = (int) (gps.vd * 100);
+                    msg_gps.eph = (int) (gps.eph * 100);
+                    msg_gps.epv = (int) (gps.epv * 100);
+                    msg_gps.vel = (int) (gps.getSpeed() * 100);
+                    msg_gps.cog = (int) (gps.getCog() / Math.PI * 18000.0);
+                    msg_gps.fix_type = 3;
+                    msg_gps.satellites_visible = 10;
+                    apMavlinkPort.sendMessage(msg_gps);
+                    
+                    msg_global_position_int msg_target = new msg_global_position_int(2,
+                            componentId);
+                    GPSPosition target_pos = target.getGPS();
+                    msg_target.time_boot_ms = tu;
+                    msg_target.lat = (long) (target_pos.lat * 1e7);
+                    msg_target.lon = (long) (target_pos.lon * 1e7);
+                    msg_target.alt = (long) (target_pos.alt * 1e3);
+                    msg_target.vx = (int) (target_pos.vn * 100);
+                    msg_target.vy = (int) (target_pos.ve * 100);
+                    msg_target.vz = (int) (target_pos.vd * 100);
+                    apMavlinkPort.sendMessage(msg_target);
+                }
+            } catch (IOException ex) {
+                Logger.getLogger(Simulator.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
     }
 
     static long lastUpdate = 0;
+    final long minSleep = sleepInterval / 4;
 
     public void run() {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                while (true) {
-                    visualizer.update();
-                    try {
-                        Thread.sleep(visualizerSleepInterval);
-                    } catch (InterruptedException e) {
-                        break;
-                    }
-                }
-            }
-        }).start();
+
+//        // realtime display... this should probably be simulated time, not realtime
+//        new Thread(new Runnable() {
+//            @Override
+//            public void run() {
+//                while (true) {
+//                    visualizer.update();
+//                    try {
+//                        Thread.sleep(visualizerSleepInterval);
+//                    } catch (InterruptedException e) {
+//                        break;
+//                    }
+//                }
+//            }
+//        }).start();
+        // realtime handling of messages from autopilot
         new Thread(new Runnable() {
             @Override
             public void run() {
                 while (true) {
                     MAVLinkMessage msg;
                     try {
-                        msg = mavlinkPort.getNextMessage(true);
+                        msg = apMavlinkPort.getNextMessage(true);
                         if (msg != null) {
                             handleMavLinkMessage(msg);
-                            mavlinkPort1.sendMessage(msg);
+                            // forward to GCS
+                            gcsMavlinkPort.sendMessage(msg);
                         }
                     } catch (IOException e) {
-                        // TODO Auto-generated catch block
                         e.printStackTrace();
                     }
                 }
             }
         }).start();
+
+        // realtime forwarding of messages from gcs to autopilot
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                MAVLinkMessage msg;
+                try {
+                    msg = gcsMavlinkPort.getNextMessage(true);
+                    apMavlinkPort.sendMessage(msg);
+                } catch (IOException ex) {
+                    Logger.getLogger(Simulator.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }).start();
+
+        // main loop: run a realtime simulator integration step (world.update)
         nextRun = System.currentTimeMillis() + sleepInterval;
         while (true) {
             try {
-                // while (System.currentTimeMillis() < nextRun - sleepInterval *
-                // 3
-                // / 4) {
-                // MAVLinkMessage msg = mavlinkPort.getNextMessage(false);
-                // if (msg == null)
-                // break;
-                // handleMavLinkMessage(msg);
-                // mavlinkPort1.sendMessage(msg);
-                // }
-                while (System.currentTimeMillis() < nextRun - sleepInterval * 3
-                        / 4) {
-                    MAVLinkMessage msg = mavlinkPort1.getNextMessage(false);
-                    if (msg == null)
-                        break;
-                    mavlinkPort.sendMessage(msg);
-                }
+                // run a simulation step
                 long t = System.currentTimeMillis();
-                world.update(t);
-                if (mavlinkPort.isOpened() && inited)
-                    sendMavLinkMessages();
+                long dt = t - lastUpdate;
+                lastUpdate = t;
+                if (dt > sleepInterval + 1) {
+                    logger.log(Level.INFO, "dt: " + dt);
+                }
+                // this call can block due to syncing with renderer
+//                world.update(t);
+//                visualizer.update();
+                // send HIL sensor and GPS data to PX4
+//                if (apMavlinkPort.isOpened() && inited) {
+//                    sendMavLinkMessages_ap();
+//                }
+                dt = System.currentTimeMillis() - t;
+                if (dt > 10) {
+                    logger.log(Level.INFO, "update dt: " + dt);
+                }
+
                 long timeLeft = Math.max(sleepInterval / 4,
                         nextRun - System.currentTimeMillis());
                 nextRun = Math.max(t + sleepInterval / 4, nextRun
                         + sleepInterval);
+                if (timeLeft == minSleep) {
+                    out.format("sync slip: nextRun: %d, timeLeft: %d\n", nextRun, timeLeft);
+                }
 
                 Thread.sleep(timeLeft);
             } catch (Exception e) {
@@ -299,17 +355,17 @@ public class Simulator extends Thread {
                 // mac
                 portName = "/dev/tty.usbmodem1";
             } else {
-                out.println("Sorry, your operating system is not supported");
+                logger.log(Level.INFO, "Sorry, your operating system is not supported");
                 System.exit(1);
             }
         } else if (args.length >= 1) {
             portName = args[0];
-            out.println("serial port: " + args[0]);
+            logger.log(Level.INFO, "serial port: " + args[0]);
         } else {
-            out.println("Usage: java Simulator serialPort");
-            out.println("Defaulting serial port to " + portName);
+            logger.log(Level.INFO, "Usage: java Simulator serialPort");
+            logger.log(Level.INFO, "Defaulting serial port to " + portName);
         }
-        out.println("Using serial port: " + portName);
+        logger.log(Level.INFO, "Using serial port: " + portName);
 
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {

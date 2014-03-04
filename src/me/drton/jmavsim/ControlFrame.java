@@ -3,19 +3,16 @@ package me.drton.jmavsim;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Insets;
-import java.awt.LayoutManager2;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 
 import javax.media.j3d.Canvas3D;
-import javax.swing.JButton;
+import javax.swing.ButtonGroup;
 import javax.swing.JFrame;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
@@ -23,12 +20,10 @@ import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JRadioButtonMenuItem;
-import javax.swing.JToggleButton;
 import javax.swing.UIManager;
 
-import com.sun.j3d.utils.behaviors.mouse.MouseRotate;
-
 public class ControlFrame extends JFrame {
+
     /**
      * Initial version of GUI
      */
@@ -83,7 +78,7 @@ public class ControlFrame extends JFrame {
         Dimension sdm = tkit.getScreenSize();
         Insets insets = tkit.getScreenInsets(device.getDefaultConfiguration());
         int swidth = sdm.width - insets.left;
-        this.setPreferredSize(new Dimension(swidth, swidth/2));
+        this.setPreferredSize(new Dimension(swidth, swidth / 2));
 
         contentPane = (JPanel) this.getContentPane();
         contentPane.setLayout(new BorderLayout());
@@ -130,6 +125,32 @@ public class ControlFrame extends JFrame {
                         }
                     }
                 });
+
+        JMenu auxViewControl = new JMenu("Aux View");
+        menubar.add(auxViewControl);
+        final ButtonGroup auxViewGroup = new ButtonGroup();
+        ActionListener viewControlListener = new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                for (Visualizer.viewTypes viewType : Visualizer.viewTypes.values()) {
+                    String vname = auxViewGroup.getSelection().getActionCommand();
+                    if (vname.equals(viewType.name())) {
+                        sim.visualizer.setViewType(viewType);
+                        System.out.println("viewType: " + viewType);
+                    }                    
+                }
+            }
+        };
+        for (Visualizer.viewTypes viewType : Visualizer.viewTypes.values()) {
+            String name = viewType.name();
+            JRadioButtonMenuItem newRB = new JRadioButtonMenuItem(name);
+            newRB.setActionCommand(name);
+            newRB.addActionListener(viewControlListener);
+            if (viewType == sim.visualizer.dbgViewType) 
+                newRB.setSelected(true);
+            auxViewControl.add(newRB);
+            auxViewGroup.add(newRB);
+        }
 
         JMenu targetControl = new JMenu("Target");
         menubar.add(targetControl);

@@ -3,7 +3,6 @@ package me.drton.jmavsim;
 /**
  * User: ton Date: 28.11.13 Time: 23:15
  */
-
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsEnvironment;
 import java.util.Map;
@@ -36,15 +35,25 @@ import javax.vecmath.TexCoord2f;
 import javax.vecmath.Vector3d;
 import javax.vecmath.Vector3f;
 
-import com.sun.j3d.utils.behaviors.mouse.MouseRotate;
-import com.sun.j3d.utils.behaviors.mouse.MouseTranslate;
-import com.sun.j3d.utils.behaviors.mouse.MouseZoom;
 import com.sun.j3d.utils.geometry.Sphere;
 import com.sun.j3d.utils.image.TextureLoader;
-import com.sun.j3d.utils.picking.behaviors.PickRotateBehavior;
-import com.sun.j3d.utils.picking.behaviors.PickTranslateBehavior;
-import com.sun.j3d.utils.picking.behaviors.PickZoomBehavior;
-import com.sun.j3d.utils.universe.SimpleUniverse;
+import com.sun.j3d.utils.picking.PickCanvas;
+import com.sun.j3d.utils.picking.PickResult;
+import com.sun.j3d.utils.universe.ViewInfo;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import static java.lang.System.out;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.logging.StreamHandler;
+import javax.media.j3d.Behavior;
+import javax.media.j3d.WakeupCondition;
+import javax.media.j3d.WakeupCriterion;
+import javax.media.j3d.WakeupOnElapsedFrames;
+import javax.media.j3d.WakeupOr;
 
 class CameraView {
 
@@ -55,6 +64,7 @@ class CameraView {
     protected TransformGroup vpTG = null;
     protected ViewPlatform viewPlatform = null;
     protected View view = null;
+    protected ViewInfo viewInfo = null;
     protected Canvas3D canvas = null;
 
     public CameraView() {
@@ -79,6 +89,8 @@ class CameraView {
         vpTG.setCapability(TransformGroup.ALLOW_TRANSFORM_READ);
         vpTG.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
         vpTG.addChild(viewPlatform);
+
+        viewInfo = new ViewInfo(view);
 
         rootBG = new BranchGroup();
         rootBG.setCapability(BranchGroup.ALLOW_DETACH);
@@ -105,20 +117,63 @@ class CameraView {
 }
 
 public class Visualizer {
+
+    static private Logger logger;
+
+    static {
+        logger = Logger.getLogger("Visualizer");
+        Handler[] handler = logger.getParent().getHandlers();
+        handler[0].setFormatter(new BriefFormatter());
+        try {
+            String logFileName = FileUtils.getLogFileName("log", "visualizer");
+            StreamHandler logFileHandler = new StreamHandler(
+                    new FileOutputStream(logFileName), new BriefFormatter());
+            out.println("logfile: " + logFileName);
+            logFileHandler.setFormatter(new BriefFormatter());
+            logger.addHandler(logFileHandler);
+        } catch (SecurityException | IOException e) {
+            out.println("error creating logger");
+            System.exit(0);
+        }
+    }
+
     private static Color3f white = new Color3f(1.0f, 1.0f, 1.0f);
     private VirtualUniverse universe;
     private Locale locale;
-    protected Canvas3D canvas3D;
+//    protected Canvas3D canvas3D;
     private World world;
+    private Simulator sim;
     private BoundingSphere sceneBounds = new BoundingSphere(
             new Point3d(0, 0, 0), 100000.0);
     private Vector3d fixedPos = new Vector3d(-7.0, 0.0, -5);
     private Vector3d viewerPos = new Vector3d(fixedPos);
+    private Vector3d dbgViewerPos = new Vector3d(fixedPos);
     private Transform3D viewerTransform = new Transform3D();
     private VisualObject viewerTarget;
     private MechanicalObject viewerPosition;
+    private MechanicalObject dbgViewerObject;
     protected CameraView mainCamera;
-    private boolean topView = false;
+    private boolean autoRotate = true;
+
+    protected CameraView dbgCamera;
+    ViewPlatformBehavior dbgViewBehavior;
+
+    static MouseAdapter mouseListener;
+    PickCanvas pickCanvas;
+    PickResult pickResults;
+    TransformGroup moveTGroup;
+    TransformGroup curModelTG;
+    TransformGroup viewMatrixGroup;
+
+    protected static enum viewTypes {
+
+        stereo, top, chase
+    };
+    protected viewTypes dbgViewType = viewTypes.stereo;
+
+    public void setViewType(viewTypes viewType) {
+        this.dbgViewType = viewType;
+    }
 
     public CameraView getMainCamera() {
         return mainCamera;
@@ -128,10 +183,6 @@ public class Visualizer {
         return dbgCamera;
     }
 
-    protected CameraView dbgCamera;
-
-    private boolean autoRotate = true;
-
     public boolean isAutoRotate() {
         return autoRotate;
     }
@@ -140,121 +191,139 @@ public class Visualizer {
         viewerPos.set(fixedPos);
         viewerPosition = null;
     }
+//    static SceneGraphSpecs sceneSpecs = new SceneGraphSpecs();
 
-    public Visualizer(World world) {
+    public Visualizer(World world, Simulator sim) {
         this.world = world;
-        GraphicsConfiguration config = SimpleUniverse
-                .getPreferredConfiguration();
-        canvas3D = new Canvas3D(config);
+        this.sim = sim;
+        mouseListener = new PMouseAdapter();
+        dbgViewBehavior = new ViewPlatformBehavior(this);
+        dbgViewBehavior.setSchedulingBounds(sceneBounds);
+
         universe = new VirtualUniverse();
         locale = new Locale(universe);
         createEnvironment();
 
         @SuppressWarnings("rawtypes")
         Map vuMap = VirtualUniverse.getProperties();
-        System.out.println(" Java3D version : " + vuMap.get("j3d.version"));
-        System.out.println(" Java3D vendor : " + vuMap.get("j3d.vendor"));
-        System.out.println(" Java3D renderer: " + vuMap.get("j3d.renderer"));
+        logger.log(Level.INFO, " Java3D version : " + vuMap.get("j3d.version"));
+        logger.log(Level.INFO, " Java3D vendor : " + vuMap.get("j3d.vendor"));
+        logger.log(Level.INFO, " Java3D renderer: " + vuMap.get("j3d.renderer"));
 
         dbgCamera = new CameraView();
-        // orient viewplatform looking down +z axis from a height of 20m
         TransformGroup vpTG = dbgCamera.getViewPlatformTransformGroup();
-        Transform3D xform = new Transform3D();
-        Transform3D xform2 = new Transform3D();
-        if (topView) {
-            Vector3f vec = new Vector3f(0.0f, 0.0f, -20.0f);
-            xform.set(vec);
-            xform2.rotX(Math.PI);
-            xform.mul(xform2);
-            xform2.rotZ(-Math.PI / 2);
-            xform.mul(xform2);
-        } else {
-            Vector3f vec = new Vector3f(0.0f, 0.0f, -20.0f);
-            xform.set(vec);
-            xform2.rotZ(Math.PI / 2);
-            xform.mul(xform2);
-            xform2.rotX(-Math.PI / 2);
-            xform.mul(xform2);            
-        }
-        vpTG.setTransform(xform);
+        viewMatrixGroup = vpTG;
         View view = dbgCamera.getView();
         view.setProjectionPolicy(View.PERSPECTIVE_PROJECTION);
         dbgCamera.getView().setBackClipDistance(100000.0);
+        // set maximum frame rate
+        dbgCamera.getView().setMinimumFrameCycleTime(10);
 
-        double scale = sceneBounds.getRadius() / 1000000;
-
-        MouseRotate rbehavior = new MouseRotate();
-        rbehavior.setFactor(-.0125, .0125);
-        rbehavior.setTransformGroup(vpTG);
-        vpTG.addChild(rbehavior);
-        rbehavior.setSchedulingBounds(sceneBounds);
-
-        MouseTranslate tbehavior = new MouseTranslate();
-        tbehavior.setFactor(-scale * .75, scale * .75);
-        tbehavior.setTransformGroup(vpTG);
-        vpTG.addChild(tbehavior);
-        tbehavior.setSchedulingBounds(sceneBounds);
-
-        MouseZoom zbehavior = new MouseZoom();
-        zbehavior.setFactor(-scale * .75);
-        zbehavior.setTransformGroup(vpTG);
-        vpTG.addChild(zbehavior);
-        zbehavior.setSchedulingBounds(sceneBounds);
+        // set up mouse controlled flight
+        Transform3D mt3d = new Transform3D();
+        moveTGroup = G3f.mouseBehavior(mt3d, 100);
+        moveTGroup.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
+        moveTGroup.setCapability(TransformGroup.ALLOW_TRANSFORM_READ);
+        moveTGroup.setCapability(TransformGroup.ENABLE_PICK_REPORTING);
 
         mainCamera = new CameraView();
-        vpTG = mainCamera.getViewPlatformTransformGroup();
-        xform = new Transform3D();
-        Transform3D xform3 = new Transform3D();
-        xform3.rotZ(Math.PI / 2);
-        xform.mul(xform3);
-        xform3.rotX(-Math.PI / 2);
-        xform.mul(xform3);
-        vpTG.setTransform(xform);
         view = mainCamera.getView();
         view.setProjectionPolicy(View.PERSPECTIVE_PROJECTION);
         mainCamera.getView().setBackClipDistance(100000.0);
+        // set maximum frame rate
+        mainCamera.getView().setMinimumFrameCycleTime(10);
 
         locale.addBranchGraph(dbgCamera.getRootBG());
         locale.addBranchGraph(mainCamera.getRootBG());
 
-        BranchGroup objRoot = new BranchGroup();
-        TransformGroup sceneTrans = new TransformGroup();
-        objRoot.addChild(sceneTrans);
-        sceneTrans.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
-        sceneTrans.setCapability(TransformGroup.ALLOW_TRANSFORM_READ);
-        sceneTrans.setCapability(TransformGroup.ENABLE_PICK_REPORTING);
+        // coordinate frame reference object
+        Transform3D wFrameT3D = new Transform3D();
+        wFrameT3D.setTranslation(new Vector3d(5, 0, -4));
+        TransformGroup wFrameTG = G3f.axesCartesian2(wFrameT3D, new double[]{
+            1, 1, 1}, .2f, "world");
+        wFrameTG.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
+        wFrameTG.setCapability(TransformGroup.ALLOW_TRANSFORM_READ);
+        moveTGroup.addChild(wFrameTG);
+        dbgCamera.getCanvas3D().addMouseListener(mouseListener);
 
+        BranchGroup sceneBG = new BranchGroup();
         for (WorldObject object : world.getObjects()) {
             if (object instanceof VisualObject) {
-                sceneTrans.addChild(((VisualObject) object).getBranchGroup());
+                moveTGroup.addChild(((VisualObject) object).getBranchGroup());
             }
         }
-        // addMouseBhvs(objRoot, dbgCamera.getCanvas3D());
 
-        objRoot.compile();
-        locale.addBranchGraph(objRoot);
+        sceneBG.addChild(moveTGroup);
+        sceneBG.addChild(dbgViewBehavior);
+
+        pickCanvas = new PickCanvas(dbgCamera.getCanvas3D(), sceneBG);
+        pickCanvas.setMode(PickCanvas.GEOMETRY_INTERSECT_INFO);
+        pickCanvas.setTolerance(1.0f);
+        curModelTG = wFrameTG;
+
+        sceneBG.compile();
+        locale.addBranchGraph(sceneBG);
     }
 
-    public void addMouseBhvs(BranchGroup rootBG, Canvas3D canvas) {
-        BoundingSphere bounds = new BoundingSphere(new Point3d(0.0, 0.0, 0.0),
-                1000000.0);
+    class PMouseAdapter extends MouseAdapter {
 
-        PickRotateBehavior rotbeh = new PickRotateBehavior(rootBG, canvas,
-                bounds);
-        rootBG.addChild(rotbeh);
+        public void mouseClicked(MouseEvent evt) {
+            pickCanvas.setShapeLocation(evt);
 
-        PickZoomBehavior zoombeh = new PickZoomBehavior(rootBG, canvas, bounds);
-        rootBG.addChild(zoombeh);
+            pickResults = pickCanvas.pickClosest();
+            if (pickResults == null) {
+                logger.info("null pickResults");
+            } else if (pickResults.numIntersections() > 0) {
+                Point3d pickPt
+                        = pickResults.getIntersection(0).getClosestVertexCoordinatesVW();
 
-        PickTranslateBehavior transbeh = new PickTranslateBehavior(rootBG,
-                canvas, bounds);
-        rootBG.addChild(transbeh);
+                logger.info("picked point in virtual world: " + pickPt);
+
+                // get transforms to convert pickPt to model frame
+                Transform3D moveT3d = new Transform3D();
+                moveTGroup.getTransform(moveT3d);
+                Transform3D invMoveT3d = new Transform3D(moveT3d);
+                invMoveT3d.invert();
+
+                Transform3D modelT3d = new Transform3D();
+                Vector3d modelT = new Vector3d();   // original scene translation vector
+
+                curModelTG.getTransform(modelT3d);  // this TG should be a pure translation
+                Transform3D invModelT3d = new Transform3D(modelT3d);
+                invModelT3d.invert();
+
+                // convert pickPt to model frame coord's
+                invMoveT3d.transform(pickPt);  // undo the mouseflight transform
+                // we still have the model TransformGroup below us
+                invModelT3d.transform(pickPt); // undo the model transform
+                logger.info("picked point in model frame: " + pickPt);
+
+                Point3f neg_pickPt = new Point3f(pickPt);
+                neg_pickPt.negate();
+
+                // move rotation origin to node centroid
+                Transform3D newModelT3d = new Transform3D();
+                newModelT3d.set(new Vector3f(neg_pickPt));  // pure translation matrix
+                curModelTG.setTransform(newModelT3d);
+
+                // compensate for translation using viewMatrixGroup transform
+                Transform3D viewT3d = new Transform3D();
+                viewMatrixGroup.getTransform(viewT3d);
+                logger.info("initial view transform: \n" + viewT3d);
+                Transform3D newViewT3d = new Transform3D(moveT3d);
+                newViewT3d.mul(newModelT3d);
+                newViewT3d.mul(invModelT3d);
+                newViewT3d.mul(invMoveT3d);
+                newViewT3d.mul(viewT3d);
+                logger.info("new view transform: \n" + viewT3d);
+                viewMatrixGroup.setTransform(newViewT3d);
+            }
+        }
     }
 
-    public Canvas3D getCanvas3D() {
-        return canvas3D;
-    }
-
+//    public Canvas3D getCanvas3D() {
+//        return canvas3D;
+//    }
     public void setAutoRotate(boolean autoRotate) {
         this.autoRotate = autoRotate;
     }
@@ -265,6 +334,10 @@ public class Visualizer {
 
     public void setViewerPosition(MechanicalObject object) {
         this.viewerPosition = object;
+    }
+
+    public void setDbgViewerPosition(MechanicalObject object) {
+        this.dbgViewerObject = object;
     }
 
     private void createEnvironment() {
@@ -317,13 +390,6 @@ public class Visualizer {
         tgGround.addChild(ground);
         group.addChild(tgGround);
 
-        // coordinate frame reference object
-        Transform3D wFrameT3D = new Transform3D();
-        wFrameT3D.setTranslation(new Vector3d(5, 0, -4));
-        TransformGroup wFrameTG = G3f.axesCartesian2(wFrameT3D, new double[] {
-                1, 1, 1 }, .2f, "world");
-        group.addChild(wFrameTG);
-
         // Light
         DirectionalLight light1 = new DirectionalLight(white, new Vector3f(
                 4.0f, 7.0f, 12.0f));
@@ -362,23 +428,108 @@ public class Visualizer {
         mainCamera.getViewPlatformTransformGroup()
                 .setTransform(viewerTransform);
 
-        if (!topView) {
-            Vector3d trans = new Vector3d();
-            viewerTransform.get(trans);
-            Vector3d baseline = new Vector3d(-0.5, 0, 0);
-            Matrix3d rot = new Matrix3d();
-            viewerTransform.get(rot);
-            rot.transform(baseline);
-            trans.add(baseline);
-            viewerTransform.setTranslation(trans);
-            dbgCamera.getViewPlatformTransformGroup().setTransform(
-                    viewerTransform);
-        }
+        updateDbgView();
     }
 
     public void update() {
         synchronized (world) {
             updateViewer();
+        }
+    }
+
+    protected void updateDbgView() {
+        switch (dbgViewType) {
+            case top:
+                Vector3d trans = new Vector3d(0, 0, -10);
+                trans.add(dbgViewerObject.getPosition());
+                Matrix3d mat = new Matrix3d();
+                mat.setIdentity();
+                Matrix3d m1 = new Matrix3d();
+//                m1.rotZ(Math.PI / 2);
+//                mat.mul(m1);
+                m1.rotX(-Math.PI);
+                mat.mul(m1);
+                viewerTransform.setRotation(mat);
+                viewerTransform.setTranslation(trans);
+                break;
+            case stereo:
+                trans = new Vector3d();
+                viewerTransform.get(trans);
+                Vector3d baseline = new Vector3d(-0.5, 0, 0);
+                Matrix3d rot = new Matrix3d();
+                viewerTransform.get(rot);
+                rot.transform(baseline);
+                trans.add(baseline);
+                viewerTransform.setTranslation(trans);
+                break;
+            case chase:
+                // position camera 2m behind vehicle, looking toward it
+                trans = new Vector3d(-2, 0, 0);
+                double[] rpy = G3f.getRPYangles(dbgViewerObject.getRotation());
+                Matrix3d zRot = new Matrix3d();
+                zRot.rotZ(rpy[2]);
+                zRot.transform(trans);
+                Vector3d vPos = dbgViewerObject.getPosition();
+                dbgViewerPos.set(vPos);
+                dbgViewerPos.add(trans);
+                viewerTransform.lookAt(new Point3d(dbgViewerPos), new Point3d(
+                        vPos), new Vector3d(0, 0, -1));
+                viewerTransform.invert();
+                viewerTransform.setTranslation(dbgViewerPos);
+                break;
+        }
+        viewerTransform.normalize();
+        dbgCamera.getViewPlatformTransformGroup().setTransform(
+                viewerTransform);
+    }
+
+    class ViewPlatformBehavior extends Behavior {
+
+        protected Visualizer vis;
+        protected WakeupCondition m_WakeupCondition = null;
+        private int frameNum;
+        private long startTime;
+
+        public ViewPlatformBehavior(Visualizer vis) {
+            this.vis = vis;
+
+            //create the WakeupCriterion for the behavior
+            WakeupCriterion criterionArray[] = new WakeupCriterion[1];
+            criterionArray[0] = new WakeupOnElapsedFrames(0);
+
+            //save the WakeupCriterion for the behavior
+            m_WakeupCondition = new WakeupOr(criterionArray);
+        }
+
+        public void initialize() {
+            //apply the initial WakeupCriterion
+            wakeupOn(m_WakeupCondition);
+        }
+
+        public void processStimulus(java.util.Enumeration criteria) {
+            while (criteria.hasMoreElements()) {
+                WakeupCriterion wakeUp
+                        = (WakeupCriterion) criteria.nextElement();
+
+                //every N frames, reposition the viewplatform
+                if (wakeUp instanceof WakeupOnElapsedFrames) {
+                    frameNum++;
+                    long t = System.currentTimeMillis();
+                    long et = t - startTime;
+                    world.update(t);
+                    update();
+                    sim.sendMavLinkMessages_ap();
+                    if (et >= 1000) {
+                        double fps = 1000 * frameNum / et;
+                        logger.log(Level.INFO, "fps: " + fps);
+                        startTime = t;
+                        frameNum = 0;
+                    }
+                }
+            }
+
+            //assign the next WakeUpCondition, so we are notified again
+            wakeupOn(m_WakeupCondition);
         }
     }
 }
