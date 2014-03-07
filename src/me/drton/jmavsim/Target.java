@@ -45,9 +45,12 @@ public class Target extends VisualObject {
             logFileHandler.setFormatter(new BriefFormatter());
             logger.addHandler(logFileHandler);
             logger.log(Level.INFO, "\nTarget starting: ".concat((new Date()).toString()));
-        } catch (SecurityException | IOException e) {
-            out.println("error creating logger");
-            System.exit(0);
+        } catch (SecurityException e) {
+            out.println("security exception creating logger");
+            System.exit(1);
+        } catch (IOException e) {
+            out.println("IO exception creating logger");
+            System.exit(1);
         }
     }
     protected long startTime = -1;
@@ -237,7 +240,7 @@ public class Target extends VisualObject {
 
     static int tState = 0;
     static long lastImpulse;
-    Report gtReport = new Report(1000);
+    Report gtReport = new Report(10000);
     double damping = 0.002, zdamping = 0;
     Vector3d impT = new Vector3d(0, 1, 0);
 

@@ -134,9 +134,12 @@ public class Visualizer {
             logFileHandler.setFormatter(new BriefFormatter());
             logger.addHandler(logFileHandler);
             logger.log(Level.INFO, "\nVisualizer starting: ".concat((new Date()).toString()));
-        } catch (SecurityException | IOException e) {
-            out.println("error creating logger");
-            System.exit(0);
+        } catch (SecurityException e) {
+            out.println("security exception creating logger");
+            System.exit(1);
+        } catch (IOException e) {
+            out.println("IO exception creating logger");
+            System.exit(1);
         }
     }
 
@@ -173,6 +176,10 @@ public class Visualizer {
         stereo, top, chase
     };
     protected viewTypes dbgViewType = viewTypes.stereo;
+
+    public viewTypes getDbgViewType() {
+        return dbgViewType;
+    }
 
     public void setViewType(viewTypes viewType) {
         this.dbgViewType = viewType;
@@ -491,7 +498,7 @@ public class Visualizer {
         protected WakeupCondition m_WakeupCondition = null;
         private int frameCount;         // number of elapsed frames
         private long baseTime;
-        private long start_nt;         // milliseconds
+        private long start_nt;          // nanoseconds
         private long last_nt;           // nanoseconds
         private double avg_fps = 0;     // Hz
         private double avg_interval;    // nanoseconds
@@ -522,7 +529,7 @@ public class Visualizer {
                 WakeupCriterion wakeUp
                         = (WakeupCriterion) criteria.nextElement();
 
-                //every N frames, reposition the viewplatform
+                // for every frame, run a simulation step and reposition the viewplatform
                 if (wakeUp instanceof WakeupOnElapsedFrames) {
                     frameCount++;
                     long t = System.currentTimeMillis();

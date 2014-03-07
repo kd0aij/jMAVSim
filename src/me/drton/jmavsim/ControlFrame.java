@@ -10,7 +10,8 @@ import java.awt.Insets;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import javax.media.j3d.Canvas3D;
 import javax.swing.ButtonGroup;
 import javax.swing.JFrame;
@@ -37,9 +38,9 @@ public class ControlFrame extends JFrame {
     JRadioButtonMenuItem fixedViewRadioButton;
     JRadioButtonMenuItem moveTargetRadioButton;
 
-    protected Simulator sim;
+    protected final Simulator sim;
 
-    public ControlFrame(Simulator sim) {
+    public ControlFrame(final Simulator sim) {
         super(GraphicsEnvironment.getLocalGraphicsEnvironment()
                 .getDefaultScreenDevice().getDefaultConfiguration());
         this.sim = sim;
@@ -49,16 +50,14 @@ public class ControlFrame extends JFrame {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        this.setTitle("jMAVSim");
         // make sure we initialize to a consistent state
         this.fixedViewRadioButton.setSelected(sim.fixedPilot);
         if (sim.fixedPilot) {
             this.autoRotateRadioButton.setSelected(true);
             sim.visualizer.setAutoRotate(true);
         } else {
-            this.autoRotateRadioButton.setSelected(true);
-            sim.visualizer.setAutoRotate(true);
+            this.autoRotateRadioButton.setSelected(false);
+            sim.visualizer.setAutoRotate(false);
         }
         this.pack();
         this.setVisible(true);
@@ -91,7 +90,7 @@ public class ControlFrame extends JFrame {
         dbgPanel.setLayout(new BorderLayout());
         dbgPanel.add(dbgCanvas, BorderLayout.CENTER);
 
-        // doesn't work in 6.0_45, but does with java-7
+        // doesn't work in 6.0_45, but does with open jdk 6 and 7
         JPopupMenu.setDefaultLightWeightPopupEnabled(false);
         JMenuBar menubar = new JMenuBar();
         this.setJMenuBar(menubar);
@@ -105,6 +104,7 @@ public class ControlFrame extends JFrame {
                     public void actionPerformed(ActionEvent e) {
                         sim.visualizer.setAutoRotate(autoRotateRadioButton
                                 .isSelected());
+                        sim.setTitle();
                     }
                 });
 
@@ -114,15 +114,18 @@ public class ControlFrame extends JFrame {
                 .addActionListener(new java.awt.event.ActionListener() {
                     public void actionPerformed(ActionEvent e) {
                         if (fixedViewRadioButton.isSelected()) {
+                            sim.fixedPilot = true;
                             sim.visualizer.setViewerTarget(sim.vehicle);
                             // autoRotateButton.setSelected(true);
                             // sim.visualizer.setAutoRotate(true);
                             sim.visualizer.initPos();
                             sim.visualizer.setViewerPosition(null);
                         } else {
+                            sim.fixedPilot = false;
                             sim.visualizer.setViewerTarget(sim.target);
                             sim.visualizer.setViewerPosition(sim.vehicle);
                         }
+                        sim.setTitle();
                     }
                 });
 
@@ -136,8 +139,9 @@ public class ControlFrame extends JFrame {
                     String vname = auxViewGroup.getSelection().getActionCommand();
                     if (vname.equals(viewType.name())) {
                         sim.visualizer.setViewType(viewType);
-                        System.out.println("viewType: " + viewType);
-                    }                    
+                        sim.setTitle();
+//                        System.out.println("viewType: " + viewType);
+                    }
                 }
             }
         };
@@ -146,8 +150,9 @@ public class ControlFrame extends JFrame {
             JRadioButtonMenuItem newRB = new JRadioButtonMenuItem(name);
             newRB.setActionCommand(name);
             newRB.addActionListener(viewControlListener);
-            if (viewType == sim.visualizer.dbgViewType) 
+            if (viewType == sim.visualizer.dbgViewType) {
                 newRB.setSelected(true);
+            }
             auxViewControl.add(newRB);
             auxViewGroup.add(newRB);
         }

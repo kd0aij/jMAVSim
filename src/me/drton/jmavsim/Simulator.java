@@ -15,6 +15,7 @@ import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.logging.StreamHandler;
+import javax.swing.JFrame;
 import javax.vecmath.Matrix3d;
 import javax.vecmath.Vector3d;
 import me.drton.jmavsim.vehicle.AbstractMulticopter;
@@ -48,14 +49,18 @@ public class Simulator extends Thread {
             logFileHandler.setFormatter(new BriefFormatter());
             logger.addHandler(logFileHandler);
             logger.log(Level.INFO, "\nSimulator starting: ".concat((new Date()).toString()));
-        } catch (SecurityException | IOException e) {
-            out.println("error creating logger");
-            System.exit(0);
+        } catch (SecurityException e) {
+            out.println("security exception creating logger");
+            System.exit(1);
+        } catch (IOException e) {
+            out.println("IO exception creating logger");
+            System.exit(1);
         }
     }
 
     protected static ControlFrame cPanel = null;
     private static String portName;
+    protected static boolean running = true;
     private World world;
     protected AbstractVehicle vehicle;
     Visualizer visualizer;
@@ -65,8 +70,7 @@ public class Simulator extends Thread {
     private boolean inited = false;
     private int sysId = -1;
     private int componentId = -1;
-    private final int sleepInterval = 5;
-    private final int visualizerSleepInterval = 20;
+    private final int sleepInterval = 10;
     private long nextRun = 0;
     private final long msgIntervalGPS = 200;
     private long msgLastGPS = 0;
@@ -74,6 +78,41 @@ public class Simulator extends Thread {
     private final long initDelay = 1000;
     protected Target target;
     protected boolean fixedPilot = false;
+    private String mainViewTitle = new String();
+    private String dbgViewTitle = new String();
+
+    PerfCounterNano msg_hil_ctr;
+
+    protected static void setRunning(boolean running) {
+        Simulator.running = running;
+    }
+
+    protected void setDbgTitle() {
+        dbgViewTitle = "\t\trightView: ".concat(this.visualizer.getDbgViewType().name());
+    }
+
+    protected void setMainTitle() {
+        String cameraLoc;
+        String auto;
+
+        if (fixedPilot) {
+            cameraLoc = "fixed view";
+        } else {
+            cameraLoc = "cockpit view";
+        }
+        if (this.visualizer.isAutoRotate()) {
+            auto = "autoRotate";
+        } else {
+            auto = "straight ahead";
+        }
+        mainViewTitle = String.format("\t\t%s, %s", cameraLoc, auto);
+    }
+
+    protected void setTitle() {
+        setMainTitle();
+        setDbgTitle();
+        cPanel.setTitle("jMAVSim".concat(mainViewTitle).concat(dbgViewTitle));
+    }
 
     public Simulator() throws IOException, InterruptedException {
         // Create world
@@ -135,15 +174,13 @@ public class Simulator extends Thread {
             udpMavLinkPort.open(new InetSocketAddress(14555));
             apMavlinkPort = serialMAVLinkPort;
             gcsMavlinkPort = udpMavLinkPort;
+            msg_hil_ctr = new PerfCounterNano(logger, "msg_hil", (long) 10e9);
+            msg_hil_ctr.setHist_max(30e-3);  // 30 msec
+            msg_hil_ctr.setHist_min(10e-3);  // 10 msec
         } catch (IOException e) {
             logger.log(Level.SEVERE, "open error: ".concat(e.toString()));
-            System.exit(0);
+            System.exit(1);
         }
-        // run();
-        // Close ports
-        // mavlinkPort.close();
-        // mavlinkPort1.close();
-
         // construct GUI
         constructGUI(this);
     }
@@ -159,6 +196,7 @@ public class Simulator extends Thread {
     private void handleMavLinkMessage(MAVLinkMessage msg) throws IOException {
         long t = System.currentTimeMillis();
         if (msg instanceof msg_hil_controls) {
+            msg_hil_ctr.event(System.nanoTime());
             msg_hil_controls msg_hil = (msg_hil_controls) msg;
             List<Double> control = Arrays.asList(
                     (double) msg_hil.roll_ailerons,
@@ -184,7 +222,9 @@ public class Simulator extends Thread {
                 vehicle.setControl(Collections.<Double>emptyList());
             }
         } else if (msg instanceof msg_statustext) {
-            logger.log(Level.INFO, "MSG: " + ((msg_statustext) msg).getText());
+            logger.log(Level.INFO,
+                    String.format("%8.3f: MSG: %s", (t - initTime) / 1000.0,
+                            ((msg_statustext) msg).getText()));
         }
     }
 
@@ -242,9 +282,11 @@ public class Simulator extends Thread {
                     msg_target.vy = (int) (target_pos.ve * 100);
                     msg_target.vz = (int) (target_pos.vd * 100);
                     apMavlinkPort.sendMessage(msg_target);
+
                 }
             } catch (IOException ex) {
-                Logger.getLogger(Simulator.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Simulator.class
+                        .getName()).log(Level.SEVERE, null, ex);
             }
         }
     }
@@ -263,8 +305,8 @@ public class Simulator extends Thread {
                             // forward to GCS
                             gcsMavlinkPort.sendMessage(msg);
                         }
-                    } catch (IOException e) {
-                        e.printStackTrace();
+                    } catch (IOException ex) {
+                        logger.log(Level.SEVERE, null, ex);
                     }
                 }
             }
@@ -279,14 +321,14 @@ public class Simulator extends Thread {
                     msg = gcsMavlinkPort.getNextMessage(true);
                     apMavlinkPort.sendMessage(msg);
                 } catch (IOException ex) {
-                    Logger.getLogger(Simulator.class.getName()).log(Level.SEVERE, null, ex);
+                    logger.log(Level.SEVERE, null, ex);
                 }
             }
         }).start();
 
         // main loop: run a realtime simulator integration step (world.update)
         nextRun = System.currentTimeMillis() + sleepInterval;
-        while (true) {
+        while (running) {
             try {
                 // run a simulation step
                 long t = System.currentTimeMillis();
@@ -300,24 +342,36 @@ public class Simulator extends Thread {
                         nextRun - System.currentTimeMillis());
                 nextRun = Math.max(t + sleepInterval / 4, nextRun
                         + sleepInterval);
-                
+
                 final long minSleep = sleepInterval / 4;
                 if (timeLeft <= minSleep) {
-                    out.format("sync slip: nextRun: %d, timeLeft: %d\n", nextRun, timeLeft);
+                    logger.log(Level.INFO,
+                            String.format("sync slip: nextRun: %d, timeLeft: %d\n",
+                                    nextRun, timeLeft));
                 }
 
                 Thread.sleep(timeLeft);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+            } catch (InterruptedException ex) {
+                logger.log(Level.SEVERE, null, ex);
             }
+        }
+        try {
+            logger.log(Level.INFO, "closing MAVlink ports");
+            // Close ports
+            apMavlinkPort.close();
+            gcsMavlinkPort.close();
+            System.exit(0);
+        } catch (IOException ex) {
+            logger.log(Level.SEVERE, null, ex);
+            System.exit(1);
         }
     }
 
     public static void main(String[] args) {
         // parse command-line args
         portName = null;
+        String osname = System.getProperty("os.name", "").toLowerCase();
         if (args.length == 0) {
-            String osname = System.getProperty("os.name", "").toLowerCase();
             if (osname.startsWith("windows")) {
                 // windows
                 portName = "COM6";
@@ -338,7 +392,8 @@ public class Simulator extends Thread {
             logger.log(Level.INFO, "Usage: java Simulator serialPort");
             logger.log(Level.INFO, "Defaulting serial port to " + portName);
         }
-        logger.log(Level.INFO, "Using serial port: " + portName);
+        logger.log(Level.INFO, "OS type: ".concat(osname));
+        logger.log(Level.INFO, "Using serial port: ".concat(portName));
 
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
@@ -355,15 +410,16 @@ public class Simulator extends Thread {
         });
     }
 
-    protected static void constructGUI(Simulator sim) throws HeadlessException {
+    protected void constructGUI(Simulator sim) throws HeadlessException {
         // construct Simulator dialog
         cPanel = new ControlFrame(sim);
+        cPanel.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         cPanel.addWindowListener(new WindowAdapter() {
             public void windowClosing(WindowEvent e) {
-                System.exit(0);
+                setRunning(false);
             }
         });
-
+        setTitle();
         cPanel.setBounds(100, 100, cPanel.getWidth(), cPanel.getHeight());
         cPanel.setVisible(true);
     }
