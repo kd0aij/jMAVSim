@@ -7,10 +7,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import static java.lang.System.out;
 import java.net.InetSocketAddress;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
-import java.util.List;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -19,20 +16,12 @@ import javax.swing.JFrame;
 import javax.vecmath.Matrix3d;
 import javax.vecmath.Vector3d;
 import me.drton.jmavsim.vehicle.AbstractMulticopter;
-import me.drton.jmavsim.vehicle.AbstractVehicle;
 import me.drton.jmavsim.vehicle.Quadcopter;
-import org.mavlink.messages.MAVLinkMessage;
-import org.mavlink.messages.common.msg_global_position_int;
-import org.mavlink.messages.common.msg_heartbeat;
-import org.mavlink.messages.common.msg_hil_controls;
-import org.mavlink.messages.common.msg_hil_gps;
-import org.mavlink.messages.common.msg_hil_sensor;
-import org.mavlink.messages.common.msg_statustext;
 
 /**
  * User: ton Date: 26.11.13 Time: 12:33
  */
-public class Simulator extends Thread {
+public class Simulator {
 
     static private Logger logger;
     static boolean append = true;
@@ -60,32 +49,21 @@ public class Simulator extends Thread {
 
     protected static ControlFrame cPanel = null;
     private static String portName;
-    protected static boolean running = true;
     private World world;
     protected AbstractMulticopter vehicle;
     Visualizer visualizer;
-    private MAVLinkPort apMavlinkPort;
-    private MAVLinkPort gcsMavlinkPort;
-    private boolean gotHeartBeat = false;
-    private boolean inited = false;
-    private int sysId = -1;
-    private int componentId = -1;
+    MAVLinkConnection connHIL;
+    MAVLinkConnection connCommon;
+    private static MAVLinkPort apMavlinkPort;
+    private static MAVLinkPort gcsMavlinkPort;
     private final int sleepInterval = 10;
     private long nextRun = 0;
-    private final long msgIntervalGPS = 200;
-    private long msgLastGPS = 0;
-    private long initTime = 0;
-    private final long initDelay = 1000;
     protected Target target;
     protected boolean fixedPilot = false;
     private String mainViewTitle = new String();
     private String dbgViewTitle = new String();
 
     PerfCounterNano msg_hil_ctr;
-
-    protected static void setRunning(boolean running) {
-        Simulator.running = running;
-    }
 
     protected void setDbgTitle() {
         dbgViewTitle = "\t\trightView: ".concat(this.visualizer.getDbgViewType().name());
@@ -114,13 +92,13 @@ public class Simulator extends Thread {
         cPanel.setTitle("jMAVSim".concat(mainViewTitle).concat(dbgViewTitle));
     }
 
-    public Simulator() throws IOException, InterruptedException {
+    public Simulator() throws IOException {
         // Create world
         world = new World();
         // Create MAVLink connections
-        MAVLinkConnection connHIL = new MAVLinkConnection(world);
+        connHIL = new MAVLinkConnection(world);
         world.addObject(connHIL);
-        MAVLinkConnection connCommon = new MAVLinkConnection(world);
+        connCommon = new MAVLinkConnection(world);
         world.addObject(connCommon);
         // Create and ports
         SerialMAVLinkPort serialMAVLinkPort = new SerialMAVLinkPort();
@@ -186,45 +164,9 @@ public class Simulator extends Thread {
         msg_hil_ctr = new PerfCounterNano(logger, "msg_hil", (long) 10e9);
         msg_hil_ctr.setHist_max(30e-3);  // 30 msec
         msg_hil_ctr.setHist_min(10e-3);  // 10 msec
+        
         // construct GUI
         constructGUI(this);
-    }
-
-    public void run() {
-        // main loop: run a realtime simulator integration step (world.update)
-        nextRun = System.currentTimeMillis() + sleepInterval;
-        while (running) {
-            try {
-                // run a simulation step
-                long t = System.currentTimeMillis();
-
-                long timeLeft = Math.max(sleepInterval / 4,
-                        nextRun - System.currentTimeMillis());
-                nextRun = Math.max(t + sleepInterval / 4, nextRun
-                        + sleepInterval);
-
-                final long minSleep = sleepInterval / 4;
-                if (timeLeft <= minSleep) {
-                    logger.log(Level.INFO,
-                            String.format("sync slip: nextRun: %d, timeLeft: %d\n",
-                                    nextRun, timeLeft));
-                }
-
-                Thread.sleep(timeLeft);
-            } catch (InterruptedException ex) {
-                logger.log(Level.SEVERE, null, ex);
-            }
-        }
-        try {
-            logger.log(Level.INFO, "closing MAVlink ports");
-            // Close ports
-            apMavlinkPort.close();
-            gcsMavlinkPort.close();
-            System.exit(0);
-        } catch (IOException ex) {
-            logger.log(Level.SEVERE, null, ex);
-            System.exit(1);
-        }
     }
 
     public static void main(String[] args) {
@@ -255,32 +197,36 @@ public class Simulator extends Thread {
         logger.log(Level.INFO, "OS type: ".concat(osname));
         logger.log(Level.INFO, "Using serial port: ".concat(portName));
 
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                // construct GCS thread class
-                Simulator sim;
-                try {
-                    sim = new Simulator();
-                    // start main thread
-                    sim.start();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        });
+        // start up 
+        try {
+            Simulator sim = new Simulator();
+        } catch (IOException ex) {
+            Logger.getLogger(Simulator.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 
-    protected void constructGUI(Simulator sim) throws HeadlessException {
+    private void constructGUI(Simulator sim) throws HeadlessException {
         // construct Simulator dialog
         cPanel = new ControlFrame(sim);
         cPanel.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         cPanel.addWindowListener(new WindowAdapter() {
             public void windowClosing(WindowEvent e) {
-                setRunning(false);
+                try {
+                    apMavlinkPort.close();
+                    gcsMavlinkPort.close();
+                    System.exit(0);
+                } catch (IOException ex) {
+                    Logger.getLogger(Simulator.class.getName()).log(Level.SEVERE, null, ex);
+                    System.exit(1);
+                }
             }
         });
         setTitle();
         cPanel.setBounds(100, 100, cPanel.getWidth(), cPanel.getHeight());
-        cPanel.setVisible(true);
+        java.awt.EventQueue.invokeLater(new Runnable() {
+            public void run() {
+                cPanel.setVisible(true);
+            }
+        });
     }
 }

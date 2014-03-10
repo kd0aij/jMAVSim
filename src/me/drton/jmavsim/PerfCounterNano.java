@@ -96,7 +96,7 @@ public class PerfCounterNano {
                     String.format("%10.3f, %s rate: %5.1f, dt(msec) avg: %5.1f, min: %5.1f, max: %5.1f",
                             1e-9 * (t - baseTime), eventName, rate, 1e-6 * avg_interval,
                             1e-6 * min_interval, 1e-6 * max_interval));
-            StringBuffer hist = new StringBuffer();
+            StringBuilder hist = new StringBuilder();
             double firstInterval;
             if ((hist_min == 0) && (hist_max == 0)) {
                 binScale = (max_interval - min_interval) / (NUM_BINS - 1);
