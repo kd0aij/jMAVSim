@@ -315,10 +315,9 @@ public class Target extends VisualObject {
         return torque;
     }
 
-    public GPSPosition getGPS() {
-        double[] latlon = gpsProjector.reproject(getPosition().x,
-                getPosition().y);
-        GPSPosition gps = new GPSPosition();
+    public GlobalPosition getGlobalPosition() {
+        double[] latlon = gpsProjector.reproject(getPosition().x, getPosition().y);
+        GlobalPosition gps = new GlobalPosition();
         gps.lat = latlon[0];
         gps.lon = latlon[1];
         gps.alt = -getPosition().z;

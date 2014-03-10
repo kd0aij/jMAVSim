@@ -10,8 +10,6 @@ import java.awt.Insets;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import javax.media.j3d.Canvas3D;
 import javax.swing.ButtonGroup;
 import javax.swing.JFrame;
@@ -138,7 +136,7 @@ public class ControlFrame extends JFrame {
                 for (Visualizer.viewTypes viewType : Visualizer.viewTypes.values()) {
                     String vname = auxViewGroup.getSelection().getActionCommand();
                     if (vname.equals(viewType.name())) {
-                        sim.visualizer.setViewType(viewType);
+                        sim.visualizer.setDbgViewType(viewType);
                         sim.setTitle();
 //                        System.out.println("viewType: " + viewType);
                     }

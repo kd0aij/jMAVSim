@@ -151,12 +151,12 @@ public class Visualizer {
     private Simulator sim;
     private BoundingSphere sceneBounds = new BoundingSphere(
             new Point3d(0, 0, 0), 100000.0);
-    private Vector3d fixedPos = new Vector3d(-7.0, 0.0, -5);
+    private final Vector3d fixedPos = new Vector3d(-7.0, 0.0, -5);
     private Vector3d viewerPos = new Vector3d(fixedPos);
     private Vector3d dbgViewerPos = new Vector3d(fixedPos);
     private Transform3D viewerTransform = new Transform3D();
     private VisualObject viewerTarget;
-    private MechanicalObject viewerPosition;
+    private MechanicalObject viewerObject;
     private MechanicalObject dbgViewerObject;
     protected CameraView mainCamera;
     private boolean autoRotate = true;
@@ -181,7 +181,7 @@ public class Visualizer {
         return dbgViewType;
     }
 
-    public void setViewType(viewTypes viewType) {
+    public void setDbgViewType(viewTypes viewType) {
         this.dbgViewType = viewType;
     }
 
@@ -199,7 +199,7 @@ public class Visualizer {
 
     public void initPos() {
         viewerPos.set(fixedPos);
-        viewerPosition = null;
+        viewerObject = null;
     }
 //    static SceneGraphSpecs sceneSpecs = new SceneGraphSpecs();
 
@@ -343,7 +343,7 @@ public class Visualizer {
     }
 
     public void setViewerPosition(MechanicalObject object) {
-        this.viewerPosition = object;
+        this.viewerObject = object;
     }
 
     public void setDbgViewerPosition(MechanicalObject object) {
@@ -412,8 +412,8 @@ public class Visualizer {
     }
 
     private void updateViewer() {
-        if (viewerPosition != null) {
-            viewerPos.set(viewerPosition.getPosition());
+        if (viewerObject != null) {
+            viewerPos.set(viewerObject.getPosition());
         }
         if (autoRotate) {
             if (viewerTarget != null) {
@@ -425,8 +425,8 @@ public class Visualizer {
             Matrix3d mat = new Matrix3d();
             mat.setIdentity();
             Matrix3d m1 = new Matrix3d();
-            if (viewerPosition != null) {
-                mat.mul(viewerPosition.getRotation());
+            if (viewerObject != null) {
+                mat.mul(viewerObject.getRotation());
             }
             m1.rotZ(Math.PI / 2);
             mat.mul(m1);
@@ -448,6 +448,7 @@ public class Visualizer {
     }
 
     protected void updateDbgView() {
+        Transform3D dbgViewerTransform = new Transform3D(viewerTransform);
         switch (dbgViewType) {
             case top:
                 Vector3d trans = new Vector3d(0, 0, -10);
@@ -459,18 +460,18 @@ public class Visualizer {
 //                mat.mul(m1);
                 m1.rotX(-Math.PI);
                 mat.mul(m1);
-                viewerTransform.setRotation(mat);
-                viewerTransform.setTranslation(trans);
+                dbgViewerTransform.setRotation(mat);
+                dbgViewerTransform.setTranslation(trans);
                 break;
             case stereo:
                 trans = new Vector3d();
-                viewerTransform.get(trans);
+                dbgViewerTransform.get(trans);
                 Vector3d baseline = new Vector3d(-0.5, 0, 0);
                 Matrix3d rot = new Matrix3d();
-                viewerTransform.get(rot);
+                dbgViewerTransform.get(rot);
                 rot.transform(baseline);
                 trans.add(baseline);
-                viewerTransform.setTranslation(trans);
+                dbgViewerTransform.setTranslation(trans);
                 break;
             case chase:
                 // position camera 2m behind vehicle, looking toward it
@@ -482,14 +483,14 @@ public class Visualizer {
                 Vector3d vPos = dbgViewerObject.getPosition();
                 dbgViewerPos.set(vPos);
                 dbgViewerPos.add(trans);
-                viewerTransform.lookAt(new Point3d(dbgViewerPos), new Point3d(
+                dbgViewerTransform.lookAt(new Point3d(dbgViewerPos), new Point3d(
                         vPos), new Vector3d(0, 0, -1));
-                viewerTransform.invert();
-                viewerTransform.setTranslation(dbgViewerPos);
+                dbgViewerTransform.invert();
+                dbgViewerTransform.setTranslation(dbgViewerPos);
                 break;
         }
         dbgCamera.getViewPlatformTransformGroup().setTransform(
-                viewerTransform);
+                dbgViewerTransform);
     }
 
     class ViewPlatformBehavior extends Behavior {
