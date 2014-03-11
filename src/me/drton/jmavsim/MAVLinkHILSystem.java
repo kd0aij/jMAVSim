@@ -8,13 +8,17 @@ import javax.vecmath.Vector3d;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
- * MAVLinkHILSystem is MAVLink bridge between AbstractVehicle and autopilot connected via MAVLink.
+ * MAVLinkHILSystem is MAVLink bridge between AbstractVehicle and autopilot
+ * connected via MAVLink.
  * <p/>
  * User: ton Date: 13.02.14 Time: 22:04
  */
 public class MAVLinkHILSystem extends MAVLinkSystem {
+
     private AbstractVehicle vehicle;
     private boolean gotHeartBeat = false;
     private boolean inited = false;
@@ -22,17 +26,25 @@ public class MAVLinkHILSystem extends MAVLinkSystem {
     private long initDelay = 1000;
     private long msgIntervalGPS = 200;
     private long msgLastGPS = 0;
+    private long msgIntervalSensors = 8;
+    private long msgLastSensors = 0;
+    PerfCounterNano msg_hil_ctr;
 
     public MAVLinkHILSystem(int sysId, int componentId, AbstractVehicle vehicle) {
         super(sysId, componentId);
         this.vehicle = vehicle;
+        // 21 bins, [10,30] msec, 10 second report interval
+        msg_hil_ctr = new PerfCounterNano(Simulator.logger, "msg_hil", 21,
+                (long)10e6, (long)30e6, (long) 10e9);
     }
 
     @Override
     public void handleMessage(MAVLinkMessage msg) {
         super.handleMessage(msg);
         long t = System.currentTimeMillis();
+
         if (msg instanceof msg_hil_controls) {
+            msg_hil_ctr.event(System.nanoTime());
             msg_hil_controls msg_hil = (msg_hil_controls) msg;
             List<Double> control = Arrays.asList((double) msg_hil.roll_ailerons, (double) msg_hil.pitch_elevator,
                     (double) msg_hil.yaw_rudder, (double) msg_hil.throttle, (double) msg_hil.aux1,
@@ -63,27 +75,31 @@ public class MAVLinkHILSystem extends MAVLinkSystem {
     public void update(long t) {
         super.update(t);
         long tu = t * 1000;
-        Sensors sensors = vehicle.getSensors();
-        // Sensors
-        msg_hil_sensor msg_sensor = new msg_hil_sensor(sysId, componentId);
-        msg_sensor.time_usec = tu;
-        Vector3d acc = sensors.getAcc();
-        msg_sensor.xacc = (float) acc.x;
-        msg_sensor.yacc = (float) acc.y;
-        msg_sensor.zacc = (float) acc.z;
-        Vector3d gyro = sensors.getGyro();
-        msg_sensor.xgyro = (float) gyro.x;
-        msg_sensor.ygyro = (float) gyro.y;
-        msg_sensor.zgyro = (float) gyro.z;
-        Vector3d mag = sensors.getMag();
-        msg_sensor.xmag = (float) mag.x;
-        msg_sensor.ymag = (float) mag.y;
-        msg_sensor.zmag = (float) mag.z;
-        msg_sensor.pressure_alt = (float) sensors.getPressureAlt();
-        sendMessage(msg_sensor);
+        if (t - msgLastSensors > msgIntervalSensors) {
+            msgLastSensors = t;
+            Sensors sensors = vehicle.getSensors();
+            // Sensors
+            msg_hil_sensor msg_sensor = new msg_hil_sensor(sysId, componentId);
+            msg_sensor.time_usec = tu;
+            Vector3d acc = sensors.getAcc();
+            msg_sensor.xacc = (float) acc.x;
+            msg_sensor.yacc = (float) acc.y;
+            msg_sensor.zacc = (float) acc.z;
+            Vector3d gyro = sensors.getGyro();
+            msg_sensor.xgyro = (float) gyro.x;
+            msg_sensor.ygyro = (float) gyro.y;
+            msg_sensor.zgyro = (float) gyro.z;
+            Vector3d mag = sensors.getMag();
+            msg_sensor.xmag = (float) mag.x;
+            msg_sensor.ymag = (float) mag.y;
+            msg_sensor.zmag = (float) mag.z;
+            msg_sensor.pressure_alt = (float) sensors.getPressureAlt();
+            sendMessage(msg_sensor);
+        }
         // GPS
         if (t - msgLastGPS > msgIntervalGPS) {
             msgLastGPS = t;
+            Sensors sensors = vehicle.getSensors();
             msg_hil_gps msg_gps = new msg_hil_gps(sysId, componentId);
             msg_gps.time_usec = tu;
             GlobalPosition gps = sensors.getGlobalPosition();

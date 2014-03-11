@@ -2,11 +2,16 @@ package me.drton.jmavsim;
 
 import java.io.File;
 import java.io.FileFilter;
+import java.io.IOException;
 
 class FileUtils {
 
-    public static String getLogFileName(final String directory, final String prefix, boolean append) {
+    public static String getLogFileName(final String directory, final String prefix, boolean append) throws IOException {
         File dir = new File(directory);
+        // make sure directory exists
+        if (!dir.exists()) {
+               dir.mkdir();
+        }
         FileFilter filter = new FileFilter() {
             public boolean accept(File file) {
                 boolean status = false;

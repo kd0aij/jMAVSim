@@ -32,36 +32,31 @@ public class PerfCounterNano {
 
     private long min_interval = Long.MAX_VALUE;
     private long max_interval;
+    double firstInterval;
+    double binScale;
 
     // histogram range is from min_interval to max_interval
-    private int NUM_BINS = 21;
-    private int[] histogram = new int[NUM_BINS];
-    private long hist_min = 0;
-    private long hist_max = 0;
+    private int NUM_BINS;
+    private int[] histogram;
+    private long hist_min;
+    private long hist_max;
 
-    public PerfCounterNano(Logger logger, String eventName, long rptInterval) {
+    public PerfCounterNano(Logger logger, String eventName, int num_bins,
+            long hist_min, long hist_max, long rptInterval) {
         super();
         long t = System.nanoTime();
         baseTime = t;
         interval_start_t = t;
         this.logger = logger;
         this.eventName = eventName;
+        this.NUM_BINS = num_bins;
+        histogram = new int[NUM_BINS];
+        this.hist_min = hist_min;
+        this.hist_max = hist_max;
         this.rptInterval = rptInterval;
         lastReport = baseTime;
-    }
-
-    // seconds
-    public void setHist_min(double hist_min) {
-        this.hist_min = (long)(1e9 * hist_min);
-    }
-
-    // seconds
-    public void setHist_max(double hist_max) {
-        this.hist_max = (long)(1e9 * hist_max);
-    }
-
-    public void setNUM_BINS(int NUM_BINS) {
-        this.NUM_BINS = NUM_BINS;
+        binScale = (double) (NUM_BINS - 1) / (hist_max - hist_min);
+        firstInterval = hist_min;
     }
 
     // event time in nanoseconds
@@ -73,22 +68,14 @@ public class PerfCounterNano {
         max_interval = Math.max(dt, max_interval);
         last_t = t;
 
-        double binScale;
         int binIndex;
-        if ((hist_min == 0) && (hist_max == 0) && (max_interval - min_interval > 0)) {
-            // autoscale histogram
-            binScale = (double) NUM_BINS / (max_interval - min_interval);
-            binIndex = (int) ((dt - min_interval) * binScale);
-        } else {
-            binScale = (double) NUM_BINS / (hist_max - hist_min);
-            binIndex = (int) ((dt - min_interval) * binScale);
-        }
+        binIndex = (int) ((dt - firstInterval) * binScale);
         binIndex = Math.max(0, binIndex);
         binIndex = Math.min((NUM_BINS - 1), binIndex);
         histogram[binIndex]++;
 
         // generate log entry
-        if ((t - interval_start_t) >= rptInterval) {
+        if (et >= rptInterval) {
             avg_interval = et / eventCount;
             rate = 1e9 / avg_interval; // Hz
 
@@ -97,16 +84,10 @@ public class PerfCounterNano {
                             1e-9 * (t - baseTime), eventName, rate, 1e-6 * avg_interval,
                             1e-6 * min_interval, 1e-6 * max_interval));
             StringBuilder hist = new StringBuilder();
-            double firstInterval;
-            if ((hist_min == 0) && (hist_max == 0)) {
-                binScale = (max_interval - min_interval) / (NUM_BINS - 1);
-                firstInterval = min_interval;
-            } else {
-                binScale = (hist_max - hist_min) / (NUM_BINS - 1);
-                firstInterval = hist_min;
-            }
+            double invScale = (hist_max - hist_min) / (NUM_BINS - 1);
+            firstInterval = hist_min;
             for (int index = 0; index < NUM_BINS; index++) {
-                double interval = firstInterval + (index * binScale);
+                double interval = firstInterval + (index * invScale);
                 hist.append(String.format("%5.2f: %d\n", 1e-6 * interval, histogram[index]));
             }
             logger.log(Level.INFO, hist.toString());

@@ -54,6 +54,7 @@ import javax.media.j3d.Behavior;
 import javax.media.j3d.WakeupCondition;
 import javax.media.j3d.WakeupCriterion;
 import javax.media.j3d.WakeupOnElapsedFrames;
+import javax.media.j3d.WakeupOnElapsedTime;
 import javax.media.j3d.WakeupOr;
 
 class CameraView {
@@ -65,7 +66,6 @@ class CameraView {
     protected TransformGroup vpTG = null;
     protected ViewPlatform viewPlatform = null;
     protected View view = null;
-    protected ViewInfo viewInfo = null;
     protected Canvas3D canvas = null;
 
     public CameraView() {
@@ -78,6 +78,9 @@ class CameraView {
         canvas = new Canvas3D(gconfig);
 
         view = new View();
+        
+        // this badly breaks the mavlink connections
+//        view.setMinimumFrameCycleTime(5);
 
         viewPlatform = new ViewPlatform();
 
@@ -90,8 +93,6 @@ class CameraView {
         vpTG.setCapability(TransformGroup.ALLOW_TRANSFORM_READ);
         vpTG.setCapability(TransformGroup.ALLOW_TRANSFORM_WRITE);
         vpTG.addChild(viewPlatform);
-
-        viewInfo = new ViewInfo(view);
 
         rootBG = new BranchGroup();
         rootBG.setCapability(BranchGroup.ALLOW_DETACH);
@@ -201,7 +202,6 @@ public class Visualizer {
         viewerPos.set(fixedPos);
         viewerObject = null;
     }
-//    static SceneGraphSpecs sceneSpecs = new SceneGraphSpecs();
 
     public Visualizer(World world, Simulator sim) {
         this.world = world;
@@ -512,6 +512,8 @@ public class Visualizer {
             //create the WakeupCriterion for the behavior
             WakeupCriterion criterionArray[] = new WakeupCriterion[1];
             criterionArray[0] = new WakeupOnElapsedFrames(0);
+            // this appears to result in no calls to processStimulus
+//            criterionArray[0] = new WakeupOnElapsedTime(10);
 
             //save the WakeupCriterion for the behavior
             m_WakeupCondition = new WakeupOr(criterionArray);
@@ -537,9 +539,9 @@ public class Visualizer {
                     long nt = System.nanoTime();
                     long ent = nt - start_nt;
                     long dnt = nt - last_nt;
+                    last_nt = nt;
                     min_interval = Math.min(dnt, min_interval);
                     max_interval = Math.max(dnt, max_interval);
-                    last_nt = nt;
 
                     try {
                         world.update(t);

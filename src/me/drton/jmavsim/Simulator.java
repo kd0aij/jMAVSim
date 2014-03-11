@@ -23,7 +23,7 @@ import me.drton.jmavsim.vehicle.Quadcopter;
  */
 public class Simulator {
 
-    static private Logger logger;
+    static protected final Logger logger;
     static boolean append = true;
 
     static {
@@ -49,21 +49,17 @@ public class Simulator {
 
     protected static ControlFrame cPanel = null;
     private static String portName;
-    private World world;
+    private final World world;
     protected AbstractMulticopter vehicle;
     Visualizer visualizer;
     MAVLinkConnection connHIL;
     MAVLinkConnection connCommon;
     private static MAVLinkPort apMavlinkPort;
     private static MAVLinkPort gcsMavlinkPort;
-    private final int sleepInterval = 10;
-    private long nextRun = 0;
     protected Target target;
     protected boolean fixedPilot = false;
     private String mainViewTitle = new String();
     private String dbgViewTitle = new String();
-
-    PerfCounterNano msg_hil_ctr;
 
     protected void setDbgTitle() {
         dbgViewTitle = "\t\trightView: ".concat(this.visualizer.getDbgViewType().name());
@@ -161,9 +157,6 @@ public class Simulator {
         udpMavLinkPort.open(new InetSocketAddress(14555));
         apMavlinkPort = serialMAVLinkPort;
         gcsMavlinkPort = udpMavLinkPort;
-        msg_hil_ctr = new PerfCounterNano(logger, "msg_hil", (long) 10e9);
-        msg_hil_ctr.setHist_max(30e-3);  // 30 msec
-        msg_hil_ctr.setHist_min(10e-3);  // 10 msec
         
         // construct GUI
         constructGUI(this);
