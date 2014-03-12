@@ -23,7 +23,7 @@ import me.drton.jmavsim.vehicle.Quadcopter;
  */
 public class Simulator {
 
-    static protected final Logger logger;
+    static public final Logger logger;
     static boolean append = true;
 
     static {
