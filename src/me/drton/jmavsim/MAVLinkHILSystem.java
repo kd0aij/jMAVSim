@@ -29,6 +29,8 @@ public class MAVLinkHILSystem extends MAVLinkSystem {
     private long msgIntervalSensors = 8;
     private long msgLastSensors = 0;
     PerfCounterNano msg_hil_ctr;
+    PerfCounterNano msg_hil_ts;
+    private long msgTimeStamp = 0;
 
     public MAVLinkHILSystem(int sysId, int componentId, AbstractVehicle vehicle) {
         super(sysId, componentId);
@@ -36,6 +38,8 @@ public class MAVLinkHILSystem extends MAVLinkSystem {
         // 21 bins, [10,30] msec, 10 second report interval
         msg_hil_ctr = new PerfCounterNano(Simulator.logger, "msg_hil", 21,
                 (long)10e6, (long)30e6, (long) 10e9);
+        msg_hil_ts = new PerfCounterNano(Simulator.logger, "msg_hil_ts", 21,
+                (long)10e6, (long)30e6, (long) 5e9);
     }
 
     @Override
@@ -44,8 +48,16 @@ public class MAVLinkHILSystem extends MAVLinkSystem {
         long t = System.currentTimeMillis();
 
         if (msg instanceof msg_hil_controls) {
-            msg_hil_ctr.event(System.nanoTime());
+            
             msg_hil_controls msg_hil = (msg_hil_controls) msg;
+
+            msg_hil_ctr.event(System.nanoTime());
+            long timeStamp = msg_hil.time_usec;
+            msg_hil_ts.event(1000 * timeStamp);
+            long msgDeltaT = timeStamp - msgTimeStamp;
+            msgTimeStamp = timeStamp;
+//            Simulator.logger.log(Level.INFO, "msgDt: " + msgDeltaT);
+            
             List<Double> control = Arrays.asList((double) msg_hil.roll_ailerons, (double) msg_hil.pitch_elevator,
                     (double) msg_hil.yaw_rudder, (double) msg_hil.throttle, (double) msg_hil.aux1,
                     (double) msg_hil.aux2, (double) msg_hil.aux3, (double) msg_hil.aux4);
