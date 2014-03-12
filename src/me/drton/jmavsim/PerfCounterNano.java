@@ -44,9 +44,6 @@ public class PerfCounterNano {
     public PerfCounterNano(Logger logger, String eventName, int num_bins,
             long hist_min, long hist_max, long rptInterval) {
         super();
-        long t = System.nanoTime();
-        baseTime = t;
-        interval_start_t = t;
         this.logger = logger;
         this.eventName = eventName;
         this.NUM_BINS = num_bins;
@@ -54,6 +51,8 @@ public class PerfCounterNano {
         this.hist_min = hist_min;
         this.hist_max = hist_max;
         this.rptInterval = rptInterval;
+        this.baseTime = 0;
+        interval_start_t = baseTime;
         lastReport = baseTime;
         binScale = (double) (NUM_BINS - 1) / (hist_max - hist_min);
         firstInterval = hist_min;
@@ -61,6 +60,11 @@ public class PerfCounterNano {
 
     // event time in nanoseconds
     public void event(long t) {
+        if (baseTime == 0) {
+            baseTime = t;
+            interval_start_t = t;
+            return;
+        }
         eventCount++;
         long et = t - interval_start_t;
         long dt = t - last_t;
@@ -73,9 +77,10 @@ public class PerfCounterNano {
         binIndex = Math.max(0, binIndex);
         binIndex = Math.min((NUM_BINS - 1), binIndex);
         histogram[binIndex]++;
-
+        
         // generate log entry
         if (et >= rptInterval) {
+
             avg_interval = et / eventCount;
             rate = 1e9 / avg_interval; // Hz
 
