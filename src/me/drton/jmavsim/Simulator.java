@@ -152,14 +152,38 @@ public class Simulator {
         }
         visualizer.setDbgViewerPosition(vehicle);
 
+        // construct Simulator dialog
+        cPanel = new ControlFrame(this);
+        cPanel.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        cPanel.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                try {
+                    apMavlinkPort.close();
+                    gcsMavlinkPort.close();
+                    System.exit(0);
+                } catch (IOException ex) {
+                    Logger.getLogger(Simulator.class.getName()).log(Level.SEVERE, null, ex);
+                    System.exit(1);
+                }
+            }
+        });
+        setTitle();
+        cPanel.setBounds(100, 100, cPanel.getWidth(), cPanel.getHeight());
+
         // Open ports
         serialMAVLinkPort.open(portName, 230400, 8, 1, 0);
         udpMavLinkPort.open(new InetSocketAddress(14555));
         apMavlinkPort = serialMAVLinkPort;
         gcsMavlinkPort = udpMavLinkPort;
-        
-        // construct GUI
-        constructGUI(this);
+
+        // place a task on the AWT event queue to display Swing window
+        java.awt.EventQueue.invokeLater(new Runnable() {
+            public void run() {
+                cPanel.setVisible(true);
+            }
+        });
+
     }
 
     public static void main(String[] args) {
@@ -196,30 +220,5 @@ public class Simulator {
         } catch (IOException ex) {
             Logger.getLogger(Simulator.class.getName()).log(Level.SEVERE, null, ex);
         }
-    }
-
-    private void constructGUI(Simulator sim) throws HeadlessException {
-        // construct Simulator dialog
-        cPanel = new ControlFrame(sim);
-        cPanel.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-        cPanel.addWindowListener(new WindowAdapter() {
-            public void windowClosing(WindowEvent e) {
-                try {
-                    apMavlinkPort.close();
-                    gcsMavlinkPort.close();
-                    System.exit(0);
-                } catch (IOException ex) {
-                    Logger.getLogger(Simulator.class.getName()).log(Level.SEVERE, null, ex);
-                    System.exit(1);
-                }
-            }
-        });
-        setTitle();
-        cPanel.setBounds(100, 100, cPanel.getWidth(), cPanel.getHeight());
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                cPanel.setVisible(true);
-            }
-        });
     }
 }
