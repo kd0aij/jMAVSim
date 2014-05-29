@@ -12,7 +12,7 @@ import com.sun.j3d.loaders.objectfile.ObjectFile;
 /**
  * User: ton Date: 02.02.14 Time: 11:56
  */
-public abstract class VisualObject extends MechanicalObject {
+public abstract class VisualObject extends DynamicObject {
     protected Transform3D transform;
     protected TransformGroup transformGroup;
     protected BranchGroup branchGroup;

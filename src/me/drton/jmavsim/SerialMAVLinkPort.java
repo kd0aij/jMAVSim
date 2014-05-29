@@ -1,15 +1,14 @@
 package me.drton.jmavsim;
 
-import java.io.DataInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-
 import jssc.SerialPort;
 import jssc.SerialPortException;
-
 import org.mavlink.IMAVLinkMessage;
 import org.mavlink.MAVLinkReader;
 import org.mavlink.messages.MAVLinkMessage;
+
+import java.io.DataInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 
 /**
  * User: ton Date: 28.11.13 Time: 23:30
@@ -83,6 +82,14 @@ public class SerialMAVLinkPort extends MAVLinkPort {
             if (msg == null)
                 break;
             sendMessage(msg);
+        }
+    }
+
+    public void sendRaw(byte[] data) throws IOException {
+        try {
+            serialPort.writeBytes(data);
+        } catch (SerialPortException e) {
+            throw new IOException(e);
         }
     }
 }

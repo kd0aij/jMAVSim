@@ -1,4 +1,4 @@
-package src.me.drton.jmavlib.geo;
+package me.drton.jmavlib.geo;
 
 import static java.lang.Math.*;
 

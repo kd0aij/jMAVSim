@@ -1,4 +1,4 @@
-package src.me.drton.jmavlib.log;
+package me.drton.jmavlib.log;
 
 /**
  * User: ton Date: 16.06.13 Time: 13:30

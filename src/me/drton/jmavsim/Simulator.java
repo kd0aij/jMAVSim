@@ -8,15 +8,18 @@ import java.io.IOException;
 import static java.lang.System.out;
 import java.net.InetSocketAddress;
 import java.util.Date;
-import java.util.logging.Handler;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.logging.StreamHandler;
+import java.util.logging.*;
 import javax.swing.JFrame;
 import javax.vecmath.Matrix3d;
 import javax.vecmath.Vector3d;
 import me.drton.jmavsim.vehicle.AbstractMulticopter;
 import me.drton.jmavsim.vehicle.Quadcopter;
+import org.mavlink.messages.IMAVLinkMessageID;
+
+import javax.vecmath.Matrix3d;
+import javax.vecmath.Vector3d;
+import java.io.IOException;
+import java.net.InetSocketAddress;
 
 /**
  * User: ton Date: 26.11.13 Time: 12:33
@@ -36,6 +39,8 @@ public class Simulator {
                     new FileOutputStream(logFileName, append), new BriefFormatter());
             out.println("logfile: " + logFileName);
             logFileHandler.setFormatter(new BriefFormatter());
+            logFileHandler.setLevel(Level.INFO);
+            logger.setLevel(Level.INFO);
             logger.addHandler(logFileHandler);
             logger.log(Level.INFO, "\nSimulator starting: ".concat((new Date()).toString()));
         } catch (SecurityException e) {
@@ -89,25 +94,41 @@ public class Simulator {
     }
 
     public Simulator() throws IOException {
+        logger.setLevel(Level.ALL);
+        logger.info("set top logging level to ALL");
+
         // Create world
         world = new World();
         // Create MAVLink connections
         connHIL = new MAVLinkConnection(world);
         world.addObject(connHIL);
         connCommon = new MAVLinkConnection(world);
+        // Don't spam ground station with HIL messages
+        connCommon.addSkipMessage(IMAVLinkMessageID.MAVLINK_MSG_ID_HIL_CONTROLS);
+        connCommon.addSkipMessage(IMAVLinkMessageID.MAVLINK_MSG_ID_HIL_SENSOR);
+        connCommon.addSkipMessage(IMAVLinkMessageID.MAVLINK_MSG_ID_HIL_GPS);
         world.addObject(connCommon);
-        // Create and ports
+
+        // Create ports
+        // Serial port: connection to autopilot
         SerialMAVLinkPort serialMAVLinkPort = new SerialMAVLinkPort();
         connCommon.addNode(serialMAVLinkPort);
         connHIL.addNode(serialMAVLinkPort);
+        // UDP port: connection to ground station
         UDPMavLinkPort udpMavLinkPort = new UDPMavLinkPort();
         connCommon.addNode(udpMavLinkPort);
+
         // Create environment
         SimpleEnvironment simpleEnvironment = new SimpleEnvironment(world);
-        simpleEnvironment.setMagField(new Vector3d(0.2f, 0.0f, 0.5f));
+        Vector3d magField = new Vector3d(0.2f, 0.0f, 0.5f);
+        Matrix3d magDecl = new Matrix3d();
+        magDecl.rotZ(11.0 / 180.0 * Math.PI);
+        magDecl.transform(magField);
+        simpleEnvironment.setMagField(magField);
         // simpleEnvironment.setWind(new Vector3d(0.0, 5.0, 0.0));
         simpleEnvironment.setGroundLevel(0.0f);
         world.addObject(simpleEnvironment);
+
         // Create vehicle with sensors
         Vector3d gc = new Vector3d(0.0, 0.0, 0.0); // gravity center
         vehicle = new Quadcopter(world,
@@ -121,17 +142,22 @@ public class Simulator {
         I.m22 = 0.009;  // Z
         vehicle.setMomentOfInertia(I);
         SimpleSensors sensors = new SimpleSensors();
-        sensors.initGPS(55.753395, 37.625427);
+        //sensors.initGPS(55.753395, 37.625427);
         vehicle.setSensors(sensors);
         vehicle.setDragMove(0.02);
         vehicle.getPosition().set(0, 0, 0);
         // vehicle.setDragRotate(0.1);
-        connHIL.addNode(new MAVLinkHILSystem(10, 0, vehicle));
+
+        // Create MAVLink HIL system
+        // SysId should be the same as autopilot, ComponentId should be different!
+        connHIL.addNode(new MAVLinkHILSystem(1, 51, vehicle));
         world.addObject(vehicle);
+
+        // Create target
         target = new Target(world, 0.3);
 // target mass is calculated in its constructor
 //        target.setMass(90.0);
-        target.initGPS(55.753395, 37.625427);
+//        target.initGPS(55.753395, 37.625427);
         target.getPosition().set(0, 0.1, -5);
         connCommon.addNode(new MAVLinkTargetSystem(2, 0, target));
         world.addObject(target);
@@ -152,30 +178,33 @@ public class Simulator {
         }
         visualizer.setDbgViewerPosition(vehicle);
 
+        // Open ports
+        serialMAVLinkPort.open(portName, 230400, 8, 1, 0);
+        serialMAVLinkPort.sendRaw("\nsh /etc/init.d/rc.usb\n".getBytes());
+        udpMavLinkPort.open(new InetSocketAddress(14555));
+        apMavlinkPort = serialMAVLinkPort;
+        gcsMavlinkPort = udpMavLinkPort;
+
         // construct Simulator dialog
         cPanel = new ControlFrame(this);
-        cPanel.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        cPanel.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
         cPanel.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
-                try {
-                    apMavlinkPort.close();
-                    gcsMavlinkPort.close();
-                    System.exit(0);
-                } catch (IOException ex) {
-                    Logger.getLogger(Simulator.class.getName()).log(Level.SEVERE, null, ex);
-                    System.exit(1);
-                }
+                System.exit(0);
+//                try {
+//                    apMavlinkPort.close();
+//                    gcsMavlinkPort.close();
+//                    Logger.getLogger(Simulator.class.getName()).log(Level.INFO, "jMAVSim window closed: exiting");
+//                    System.exit(0);
+//                } catch (IOException ex) {
+//                    Logger.getLogger(Simulator.class.getName()).log(Level.SEVERE, ex.getMessage());
+//                    System.exit(1);
+//                }
             }
         });
         setTitle();
         cPanel.setBounds(100, 100, cPanel.getWidth(), cPanel.getHeight());
-
-        // Open ports
-        serialMAVLinkPort.open(portName, 230400, 8, 1, 0);
-        udpMavLinkPort.open(new InetSocketAddress(14555));
-        apMavlinkPort = serialMAVLinkPort;
-        gcsMavlinkPort = udpMavLinkPort;
 
         // place a task on the AWT event queue to display Swing window
         java.awt.EventQueue.invokeLater(new Runnable() {
@@ -218,7 +247,7 @@ public class Simulator {
         try {
             Simulator sim = new Simulator();
         } catch (IOException ex) {
-            Logger.getLogger(Simulator.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Simulator.class.getName()).log(Level.SEVERE, ex.getMessage());
         }
     }
 }

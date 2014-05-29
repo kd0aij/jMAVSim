@@ -156,9 +156,9 @@ public class Visualizer {
     private Vector3d viewerPos = new Vector3d(fixedPos);
     private Vector3d dbgViewerPos = new Vector3d(fixedPos);
     private Transform3D viewerTransform = new Transform3D();
-    private VisualObject viewerTarget;
-    private MechanicalObject viewerObject;
-    private MechanicalObject dbgViewerObject;
+    private KinematicObject viewerTarget;
+    private KinematicObject viewerObject;
+    private KinematicObject dbgViewerObject;
     protected CameraView mainCamera;
     private boolean autoRotate = true;
 
@@ -258,8 +258,8 @@ public class Visualizer {
 
         BranchGroup sceneBG = new BranchGroup();
         for (WorldObject object : world.getObjects()) {
-            if (object instanceof VisualObject) {
-                moveTGroup.addChild(((VisualObject) object).getBranchGroup());
+            if (object instanceof KinematicObject) {
+                moveTGroup.addChild(((KinematicObject) object).getBranchGroup());
             }
         }
 
@@ -338,15 +338,15 @@ public class Visualizer {
         this.autoRotate = autoRotate;
     }
 
-    public void setViewerTarget(VisualObject object) {
+    public void setViewerTarget(KinematicObject object) {
         this.viewerTarget = object;
     }
 
-    public void setViewerPosition(MechanicalObject object) {
+    public void setViewerPosition(KinematicObject object) {
         this.viewerObject = object;
     }
 
-    public void setDbgViewerPosition(MechanicalObject object) {
+    public void setDbgViewerPosition(KinematicObject object) {
         this.dbgViewerObject = object;
     }
 
@@ -544,12 +544,14 @@ public class Visualizer {
                     max_interval = Math.max(dnt, max_interval);
 
                     try {
-                        world.update(t);
-                        update();
+                        // this should be purely a display update; physical state should be maintained in
+                        // a different thread at higher frequency than display updates
+                        world.update(t);    // currently the physical and graphical state of the entire world
+                        update();   // update the Views
                     } catch (javax.media.j3d.BadTransformException e) {
                         logger.log(Level.SEVERE, e.getMessage());
                         logger.log(Level.SEVERE, sim.vehicle.transform.toString());
-                        e.printStackTrace();
+                        //e.printStackTrace();
                     }
                     if (ent >= 10e9) {
                         avg_interval = ent / frameCount;

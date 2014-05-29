@@ -75,7 +75,10 @@ public class ControlFrame extends JFrame {
         Dimension sdm = tkit.getScreenSize();
         Insets insets = tkit.getScreenInsets(device.getDefaultConfiguration());
         int swidth = sdm.width - insets.left;
-        this.setPreferredSize(new Dimension(swidth, swidth / 2));
+        if (swidth < 1920)
+            this.setPreferredSize(new Dimension(swidth, swidth / 2));
+        else
+            this.setPreferredSize(new Dimension(1024, 512));
 
         contentPane = (JPanel) this.getContentPane();
         contentPane.setLayout(new BorderLayout());

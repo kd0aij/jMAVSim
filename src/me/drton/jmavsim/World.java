@@ -1,5 +1,7 @@
 package me.drton.jmavsim;
 
+import me.drton.jmavlib.geo.LatLonAlt;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,11 +11,13 @@ import java.util.List;
 public class World {
     private List<WorldObject> objects = new ArrayList<WorldObject>();
     private Environment environment = null;
+    private LatLonAlt globalReference = new LatLonAlt(0.0, 0.0, 0.0);
 
     public void addObject(WorldObject obj) {
         objects.add(obj);
-        if (obj instanceof Environment)
+        if (obj instanceof Environment) {
             environment = (Environment) obj;
+        }
     }
 
     public List<WorldObject> getObjects() {
@@ -24,8 +28,18 @@ public class World {
         return environment;
     }
 
+    // update the physical state of the entire world
     public synchronized void update(long t) {
-        for (WorldObject obj : objects)
+        for (WorldObject obj : objects) {
             obj.update(t);
+        }
+    }
+
+    public void setGlobalReference(LatLonAlt globalReference) {
+        this.globalReference = globalReference;
+    }
+
+    public LatLonAlt getGlobalReference() {
+        return globalReference;
     }
 }

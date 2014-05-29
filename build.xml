@@ -49,4 +49,13 @@
     <target name="clean" description="Clean up">
         <delete dir="out/production"/>
     </target>
+    <target name="remove-signatures">
+        <exec executable="zip">
+            <arg value="-d"/>
+            <arg value="${JMAVSim/out}/output.jar"/>
+            <arg value="*.RSA"/>
+            <arg value="*.SF"/>
+            <arg value="*.DSA"/>
+        </exec>
+    </target>
 </project>

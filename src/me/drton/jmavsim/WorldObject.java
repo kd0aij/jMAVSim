@@ -10,6 +10,7 @@ public abstract class WorldObject {
         this.world = world;
     }
 
+    // this method changes physical state
     public abstract void update(long t);
 
     public World getWorld() {

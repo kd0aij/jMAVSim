@@ -1,4 +1,4 @@
-package src.me.drton.jmavlib.log;
+package me.drton.jmavlib.log;
 
 import java.io.IOException;
 import java.util.Map;

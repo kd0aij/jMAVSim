@@ -1,16 +1,7 @@
 package me.drton.jmavsim;
 
-import static java.lang.System.out;
-
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.logging.Handler;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.logging.StreamHandler;
+import com.sun.j3d.utils.geometry.Cylinder;
+import com.sun.j3d.utils.geometry.Sphere;
 
 import javax.media.j3d.Appearance;
 import javax.media.j3d.Material;
@@ -20,15 +11,25 @@ import javax.vecmath.AxisAngle4d;
 import javax.vecmath.Matrix3d;
 import javax.vecmath.Vector3d;
 import javax.vecmath.Vector4d;
-
-import com.sun.j3d.utils.geometry.Cylinder;
-import com.sun.j3d.utils.geometry.Sphere;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.logging.StreamHandler;
+
+import static java.lang.System.out;
+
+import me.drton.jmavlib.geo.GlobalPositionProjector;
 
 /**
  * User: ton Date: 01.02.14 Time: 22:12
  */
-public class Target extends VisualObject {
+public class Target extends DynamicObject {
 
     static private Logger logger;
     static boolean append = true;
@@ -113,6 +114,8 @@ public class Target extends VisualObject {
         // this sets the top logging level (above the file and console handlers)
         logger.setLevel(Level.ALL);
         logger.info("set top logging level to ALL");
+
+        gpsProjector.init(world.getGlobalReference());
 
         ArrayList<Vector4d> masses = new ArrayList<Vector4d>();
         int N = 8;
@@ -208,9 +211,9 @@ public class Target extends VisualObject {
         transformGroup.addChild(baseTG);
     }
 
-    public void initGPS(double lat, double lon) {
-        gpsProjector.init(lat, lon);
-    }
+//    public void initGPS(double lat, double lon) {
+//        gpsProjector.init(lat, lon);
+//    }
 
     Report gfReport = new Report(10);
 
@@ -315,20 +318,16 @@ public class Target extends VisualObject {
         return torque;
     }
 
-    public GlobalPosition getGlobalPosition() {
-        double[] latlon = gpsProjector.reproject(getPosition().x, getPosition().y);
-        GlobalPosition gps = new GlobalPosition();
-        gps.lat = latlon[0];
-        gps.lon = latlon[1];
-        gps.alt = -getPosition().z;
+    public GlobalPositionVelocity getGlobalPosition() {
+        Vector3d pos = getPosition();
+        me.drton.jmavlib.geo.LatLonAlt latLonAlt = gpsProjector.reproject(new double[]{pos.x, pos.y, pos.z});
+        GlobalPositionVelocity gps = new GlobalPositionVelocity();
+        gps.position = latLonAlt;
         gps.eph = 1.0;
         gps.epv = 1.0;
-        gps.vn = getVelocity().x;
-        gps.ve = getVelocity().y;
-        gps.vd = getVelocity().z;
+        gps.velocity = getVelocity();
         return gps;
     }
-
     class Report {
 
         long lastReport = 0;

@@ -1,4 +1,4 @@
-package src.me.drton.jmavlib.log;
+package me.drton.jmavlib.log;
 
 import java.io.EOFException;
 import java.io.IOException;
