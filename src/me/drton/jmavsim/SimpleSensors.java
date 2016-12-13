@@ -37,6 +37,9 @@ public class SimpleSensors implements Sensors {
     // accuracy smoothing filters, slowly improve h/v accuracy after startup
     private Filter ephFilter = new Filter();
     private Filter epvFilter = new Filter();
+    // model bias instability as a random walk
+    private float noise_gbias = .001f;
+    private Vector3d gbias;
 
     public SimpleSensors() {
         initFilters();
@@ -121,7 +124,10 @@ public class SimpleSensors implements Sensors {
 
     @Override
     public Vector3d getGyro() {
-        return addZeroMeanNoise(object.getRotationRate(), noise_Gyo);
+        gbias = addZeroMeanNoise(gbias, noise_gbias);
+        Vector3d result = addZeroMeanNoise(object.getRotationRate(), noise_Gyo);
+        result.add(gbias);
+        return result;
     }
 
     @Override
