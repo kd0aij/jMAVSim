@@ -22,7 +22,9 @@ public class MAVLinkHILSystem extends MAVLinkSystem {
     private boolean stopped = false;
     private long initTime = 0;
     private long initDelay = 500;
-    private boolean zeroBased = true;
+    private boolean gotHilActuatorControls = false; //prefer HIL_ACTUATOR_CONTROLS in case we get both messages
+    private long hilStateUpdateInterval = -1; //don't publish by default
+    private long nextHilStatePub = 0;
 
     /**
      * Create MAVLinkHILSimulator, MAVLink system that sends simulated sensors to autopilot and passes controls from
@@ -42,6 +44,7 @@ public class MAVLinkHILSystem extends MAVLinkSystem {
         super.handleMessage(msg);
         long t = System.currentTimeMillis();
         if ("HIL_ACTUATOR_CONTROLS".equals(msg.getMsgName())) {
+            gotHilActuatorControls = true;
             List<Double> control = new ArrayList<Double>();
             for (int i = 0; i < 8; ++i) {
                 control.add(((Number)((Object[])msg.get("controls"))[i]).doubleValue());
@@ -60,16 +63,9 @@ public class MAVLinkHILSystem extends MAVLinkSystem {
                 }
             }
 
-            // If the range is -1..+1 for motors, adjust it here
-            for (int i = 0; i < control.size(); i++) {
-                if (!zeroBased) {
-                    control.set(i, (control.get(i) + 1.0) / 2.0);
-                }
-            }
-
             vehicle.setControl(control);
 
-        } else if ("HIL_CONTROLS".equals(msg.getMsgName())) { //this is deprecated, but we still support accept it for now
+        } else if ("HIL_CONTROLS".equals(msg.getMsgName()) && !gotHilActuatorControls) { //this is deprecated, but we still support it for now
             List<Double> control = Arrays.asList(msg.getDouble("roll_ailerons"), msg.getDouble("pitch_elevator"),
                     msg.getDouble("yaw_rudder"), msg.getDouble("throttle"), msg.getDouble("aux1"),
                     msg.getDouble("aux2"), msg.getDouble("aux3"), msg.getDouble("aux4"));
@@ -87,15 +83,16 @@ public class MAVLinkHILSystem extends MAVLinkSystem {
                 }
             }
 
-            // If the range is -1..+1 for motors, adjust it here
-            for (int i = 0; i < control.size(); i++) {
-                if (!zeroBased) {
-                    control.set(i, (control.get(i) + 1.0) / 2.0);
-                }
-            }
-
             vehicle.setControl(control);
 
+        } else if ("COMMAND_LONG".equals(msg.getMsgName())) {
+            int command = msg.getInt("command");
+            if (command == 511) { //MAV_CMD_SET_MESSAGE_INTERVAL
+                int msg_id = (int)(msg.getFloat("param1")+0.5);
+                if (msg_id == 115) { //HIL_STATE_QUATERNION
+                    hilStateUpdateInterval = (int)(msg.getFloat("param2")+0.5);
+                }
+            }
         } else if ("HEARTBEAT".equals(msg.getMsgName())) {
             if (!gotHeartBeat && !stopped) {
                 if (sysId < 0 || sysId == msg.systemID) {
@@ -116,9 +113,6 @@ public class MAVLinkHILSystem extends MAVLinkSystem {
             if ((msg.getInt("base_mode") & 128) == 0) {
                 vehicle.setControl(Collections.<Double>emptyList());
             }
-            if (msg.getInt("autopilot") == 12) {
-                zeroBased = false;
-            }
         } else if ("STATUSTEXT".equals(msg.getMsgName())) {
             System.out.println("MSG: " + msg.getString("text"));
         }
@@ -135,7 +129,7 @@ public class MAVLinkHILSystem extends MAVLinkSystem {
         stopped = false;
         inited = true;
     }
-    
+
     public void endSim() {
         if (!inited)
             return;
@@ -149,12 +143,12 @@ public class MAVLinkHILSystem extends MAVLinkSystem {
         stopped = true;
         vehicle.getSensors().setGPSStartTime(-1);
     }
-    
+
     @Override
     public void update(long t) {
         super.update(t);
         long tu = t * 1000; // Time in us
-        
+
         if (!this.inited)
             return;
 
@@ -183,38 +177,40 @@ public class MAVLinkHILSystem extends MAVLinkSystem {
         }
         sendMessage(msg_sensor);
 
-        MAVLinkMessage msg_hil_state = new MAVLinkMessage(schema, "HIL_STATE_QUATERNION", sysId, componentId);
-        msg_hil_state.set("time_usec", tu);
+        if (hilStateUpdateInterval != -1 && nextHilStatePub <= tu) {
+            MAVLinkMessage msg_hil_state = new MAVLinkMessage(schema, "HIL_STATE_QUATERNION", sysId, componentId);
+            msg_hil_state.set("time_usec", tu);
 
-        Float[] q = RotationConversion.quaternionByEulerAngles(vehicle.attitude);
-        msg_hil_state.set("attitude_quaternion", q);
+            Float[] q = RotationConversion.quaternionByEulerAngles(vehicle.attitude);
+            msg_hil_state.set("attitude_quaternion", q);
 
-        Vector3d v3d = vehicle.getRotationRate();
-        msg_hil_state.set("rollspeed", (float)v3d.getX());
-        msg_hil_state.set("pitchspeed", (float)v3d.getY());
-        msg_hil_state.set("yawspeed", (float)v3d.getZ());
+            Vector3d v3d = vehicle.getRotationRate();
+            msg_hil_state.set("rollspeed", (float) v3d.getX());
+            msg_hil_state.set("pitchspeed", (float) v3d.getY());
+            msg_hil_state.set("yawspeed", (float) v3d.getZ());
 
-        int alt = (int)(1000 * vehicle.position.getZ());
-        msg_hil_state.set("alt", alt);
+            int alt = (int) (1000 * vehicle.position.getZ());
+            msg_hil_state.set("alt", alt);
 
-        v3d = vehicle.getVelocity();
-        msg_hil_state.set("vx", (int) (v3d.getX() * 100));
-        msg_hil_state.set("vy", (int) (v3d.getY() * 100));
-        msg_hil_state.set("vz", (int) (v3d.getZ() * 100));
+            v3d = vehicle.getVelocity();
+            msg_hil_state.set("vx", (int) (v3d.getX() * 100));
+            msg_hil_state.set("vy", (int) (v3d.getY() * 100));
+            msg_hil_state.set("vz", (int) (v3d.getZ() * 100));
 
-        Vector3d airSpeed = new Vector3d(vehicle.getVelocity());
-        airSpeed.scale(-1.0);
-        airSpeed.add(vehicle.getWorld().getEnvironment().getCurrentWind(vehicle.position));
-        float as_mag = (float) airSpeed.length();
-        msg_hil_state.set("true_airspeed", (int) (as_mag * 100));
+            Vector3d airSpeed = new Vector3d(vehicle.getVelocity());
+            airSpeed.scale(-1.0);
+            airSpeed.add(vehicle.getWorld().getEnvironment().getCurrentWind(vehicle.position));
+            float as_mag = (float) airSpeed.length();
+            msg_hil_state.set("true_airspeed", (int) (as_mag * 100));
 
-        v3d = vehicle.acceleration;
-        msg_hil_state.set("xacc", (int) (v3d.getX() * 1000));
-        msg_hil_state.set("yacc", (int) (v3d.getY() * 1000));
-        msg_hil_state.set("zacc", (int) (v3d.getZ() * 1000));
+            v3d = vehicle.acceleration;
+            msg_hil_state.set("xacc", (int) (v3d.getX() * 1000));
+            msg_hil_state.set("yacc", (int) (v3d.getY() * 1000));
+            msg_hil_state.set("zacc", (int) (v3d.getZ() * 1000));
 
-
-        sendMessage(msg_hil_state);
+            sendMessage(msg_hil_state);
+            nextHilStatePub = tu + hilStateUpdateInterval;
+        }
 
         // GPS
         if (sensors.isGPSUpdated()) {
