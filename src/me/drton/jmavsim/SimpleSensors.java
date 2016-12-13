@@ -39,7 +39,7 @@ public class SimpleSensors implements Sensors {
     private Filter epvFilter = new Filter();
     // model bias instability as a random walk
     private float noise_gbias = .001f;
-    private Vector3d gbias;
+    private Vector3d gbias = new Vector3d();
 
     public SimpleSensors() {
         initFilters();
