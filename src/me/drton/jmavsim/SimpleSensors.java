@@ -37,8 +37,10 @@ public class SimpleSensors implements Sensors {
     // accuracy smoothing filters, slowly improve h/v accuracy after startup
     private Filter ephFilter = new Filter();
     private Filter epvFilter = new Filter();
-    // model bias instability as a random walk
-    private float noise_gbias = .00001f;
+    // model bias instability as a square wave with amplitude and period
+    private float gbias_amp = .005f;
+    private int gbias_nT = (int)(30.0f / ((float)gpsInterval / 1000));  // number of gpsInterval(s) in 30 seconds
+    private int gbias_intCntr = 0;
     private Vector3d gbias = new Vector3d();
 
     public SimpleSensors() {
@@ -124,7 +126,6 @@ public class SimpleSensors implements Sensors {
 
     @Override
     public Vector3d getGyro() {
-        gbias = addZeroMeanNoise(gbias, noise_gbias);
         Vector3d result = addZeroMeanNoise(object.getRotationRate(), noise_Gyo);
         result.add(gbias);
         return result;
@@ -193,6 +194,11 @@ public class SimpleSensors implements Sensors {
             gpsCurrent.fix = eph <= fix3Deph ? 3 : eph <= fix2Deph ? 2 : 0;
             gpsCurrent.time = System.currentTimeMillis() * 1000;
             gps = gpsDelayLine.getOutput(t, gpsCurrent);
+
+            if (++gbias_intCntr > gbias_nT) {
+                gbias_intCntr = 0;
+                gbias.setX(gbias_amp - gbias.getX());
+            }
         }
     }
     
